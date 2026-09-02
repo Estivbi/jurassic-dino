@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+:root {
+  --jungle-950: #061a12;
+  --jungle-900: #0c2a1c;
+  --jungle-800: #123a26;
+  --jungle-700: #1c4d33;
+  --jungle-600: #2a6642;
+  --amber-300: #f8cf6e;
+  --amber-400: #f3b93f;
+  --amber-500: #e0992a;
+  --amber-600: #b8721a;
+  --mist: rgba(226, 245, 233, 0.08);
+  --cream: #f3ecd6;
+  --font-display: 'Bevan', 'Georgia', serif;
+  --font-body: 'Archivo', system-ui, sans-serif;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--jungle-950);
+  color: var(--cream);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+#root {
+  position: relative;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
