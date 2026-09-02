@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { dinos } from '@data/dinos'
-import { RideScene } from '@scene/RideScene'
 import { detectQuality } from '@scene/quality'
+import type { RideScene } from '@scene/RideScene'
 import type { RideStopIndex } from '@ride-types/ride'
 
 const STOP_TS = [0, ...dinos.map((d) => d.stopT), 1]
@@ -46,31 +46,40 @@ export function useRide(): RideApi {
 
   useEffect(() => {
     if (!canvasRef.current) return
-    const scene = new RideScene(canvasRef.current, dinos, detectQuality())
-    sceneRef.current = scene
+    let cancelled = false
+    let resizeObserver: ResizeObserver | null = null
 
-    scene.startLoop(() => {
-      const tween = tweenRef.current
-      if (tween.active) {
-        const elapsed = performance.now() - tween.start
-        const raw = Math.min(elapsed / tween.duration, 1)
-        const eased = easeInOutCubic(raw)
-        liveTRef.current = tween.from + (tween.to - tween.from) * eased
-        setProgressPercent(liveTRef.current * 100)
-        if (raw >= 1) {
-          tween.active = false
-          setIsAnimating(false)
+    // three.js pesa la mayor parte del bundle: se carga bajo demanda para que la
+    // valla de entrada (HTML/CSS/React) pinte de inmediato mientras la escena llega en paralelo.
+    import('@scene/RideScene').then(({ RideScene }) => {
+      if (cancelled || !canvasRef.current) return
+      const scene = new RideScene(canvasRef.current, dinos, detectQuality())
+      sceneRef.current = scene
+
+      scene.startLoop(() => {
+        const tween = tweenRef.current
+        if (tween.active) {
+          const elapsed = performance.now() - tween.start
+          const raw = Math.min(elapsed / tween.duration, 1)
+          const eased = easeInOutCubic(raw)
+          liveTRef.current = tween.from + (tween.to - tween.from) * eased
+          setProgressPercent(liveTRef.current * 100)
+          if (raw >= 1) {
+            tween.active = false
+            setIsAnimating(false)
+          }
         }
-      }
-      scene.setProgress(liveTRef.current)
+        scene.setProgress(liveTRef.current)
+      })
+
+      resizeObserver = new ResizeObserver(() => scene.resize())
+      if (containerRef.current) resizeObserver.observe(containerRef.current)
     })
 
-    const resizeObserver = new ResizeObserver(() => scene.resize())
-    if (containerRef.current) resizeObserver.observe(containerRef.current)
-
     return () => {
-      resizeObserver.disconnect()
-      scene.dispose()
+      cancelled = true
+      resizeObserver?.disconnect()
+      sceneRef.current?.dispose()
       sceneRef.current = null
     }
   }, [])
