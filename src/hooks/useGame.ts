@@ -45,6 +45,7 @@ export function useGame(): GameApi {
       const scene = new GameScene(canvasRef.current, dinos, detectQuality())
       sceneRef.current = scene
       detachKeyboard = attachKeyboardControls(inputRef.current)
+      if (import.meta.env.DEV) (window as unknown as { __gameScene?: GameScene }).__gameScene = scene
 
       scene.startLoop(
         (nearbyId) => {

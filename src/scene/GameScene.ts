@@ -71,6 +71,16 @@ export class GameScene {
     return this.nearbyDinoId
   }
 
+  /** Expuesto para depuración manual (consola del navegador): posición y rumbo actuales del jeep. */
+  getVehicleState(): { x: number; y: number; z: number; heading: number } {
+    return {
+      x: this.vehicle.position.x,
+      y: this.vehicle.position.y,
+      z: this.vehicle.position.z,
+      heading: this.vehicle.heading,
+    }
+  }
+
   update(input: VehicleInput): void {
     this.timer.update()
     const dt = Math.min(this.timer.getDelta(), 0.1)
