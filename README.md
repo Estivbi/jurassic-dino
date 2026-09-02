@@ -1,17 +1,25 @@
 # Parque Jurásico 3D 🦖
 
-Una web-regalo interactiva: un recorrido nocturno en jeep entre la niebla, con
-4 paradas de dinosaurios (cada una con datos reales y un mito desmontado).
-Sin backend, sin dependencias de pago — pensada para desplegarse gratis en
-Vercel como sitio estático.
+Una web-regalo interactiva: conduces libremente un jeep por un parque
+nocturno entre la niebla, con 4 dinosaurios reales patrullando su zona (cada
+uno con datos reales y un mito desmontado). Sin backend, sin dependencias de
+pago — pensada para desplegarse gratis en Vercel como sitio estático.
 
 ## Stack
 
-- [Vite](https://vite.dev) + React 18 + TypeScript
-- [three.js](https://threejs.org) para la escena 3D (terreno, curva del
-  camino, niebla, luces, dinosaurios low-poly)
+- [Vite](https://vite.dev) + React 19 + TypeScript
+- [three.js](https://threejs.org) para la escena 3D (terreno, mundo abierto
+  por zonas, niebla, luces, vehículo y dinosaurios low-poly)
+- [Framer Motion](https://motion.dev) para las transiciones del HUD (React)
 - Tailwind CSS v4 solo para utilidades de layout del HUD; el resto de la
   estética vive en `src/index.css`
+
+## Controles
+
+- **Teclado**: WASD o flechas para conducir.
+- **Móvil**: botones en pantalla (aparecen solo en dispositivos táctiles).
+- **E** o el botón en pantalla: ver la ficha del dinosaurio más cercano
+  cuando aparece el aviso. **Esc** o la ✕ para cerrarla.
 
 ## Arranque en local
 
@@ -35,11 +43,12 @@ Abre `http://localhost:5173`.
 
 ```
 src/
-  scene/        # three.js: terreno, curva Catmull-Rom, niebla, luces,
-                # dinosaurios low-poly, vegetación, calidad por dispositivo
-  components/   # HUD en React: valla de entrada, tarjeta de dino,
-                # controles, pantalla final, barra de progreso
-  hooks/        # useRide: máquina de estados del recorrido (react <-> three.js)
+  scene/        # three.js: terreno, zonas/biomas, niebla, luces, vehículo,
+                # dinosaurios low-poly con IA de deambulación, vegetación,
+                # input (teclado), calidad por dispositivo
+  components/   # HUD en React: valla de entrada, controles táctiles, aviso
+                # de proximidad, tarjeta de dino, álbum de descubiertos
+  hooks/        # useGame: estado del juego (react <-> three.js)
   data/         # dinos.ts — fichas de los 4 dinosaurios
   types/        # tipos compartidos entre la escena y el HUD
 ```
@@ -50,15 +59,19 @@ src/
 sus carpetas respectivas dentro de `src/` (configurados en `vite.config.ts` y
 `tsconfig.app.json`).
 
-### Cómo funciona el recorrido
+### Cómo funciona el juego
 
-`useRide` (en `src/hooks/useRide.ts`) guarda un índice de parada
-(`-1` = puerta de entrada, `0..3` = cada dinosaurio, `4` = puerta de salida) y
-anima la posición de la cámara a lo largo de una curva Catmull-Rom
-(`src/scene/path.ts`) con un *tween* propio. La clase `RideScene` (en
-`src/scene/RideScene.ts`) solo sabe pintar un frame dado un `t` entre 0 y 1 —
-no conoce nada de React, lo que mantiene separada la lógica de estado (HUD) de
-la lógica de render (three.js).
+`useGame` (en `src/hooks/useGame.ts`) mantiene el input (teclado + táctil) en
+una ref mutable que lee cada frame la clase `GameScene`
+(`src/scene/GameScene.ts`), la cual no conoce nada de React: solo actualiza
+la física del vehículo (`src/scene/vehicle.ts`), la cámara en tercera
+persona y la IA de los dinosaurios (`src/scene/dinosaurs.ts`), y expone el id
+del dinosaurio más cercano. El mundo está dividido en 4 zonas/biomas
+(`src/scene/zones.ts`) cuyo color de niebla, tono de terreno y densidad de
+vegetación se interpolan suavemente según la posición del jeep — de ahí que
+el paisaje cambie según por dónde conduzcas. Acercarte a un dinosaurio (radio
+definido en `GameScene`) dispara el aviso de proximidad en el HUD; abrir su
+ficha pausa la conducción hasta cerrarla.
 
 ### Rendimiento y modo de calidad reducida
 
@@ -70,11 +83,16 @@ geometrías y materiales cacheados para evitar asignar memoria en cada frame.
 
 ### Assets
 
-Por ahora todos los modelos (dinosaurios, árboles, terreno) son primitivas de
-three.js generadas por código — no hay SVGs ni texturas externas. Si más
-adelante se añaden assets reales, deben ir en `src/assets/` y cargarse desde
-`src/scene/dinosaurs.ts` / `src/scene/vegetation.ts`, manteniendo las
-primitivas actuales como *fallback* si el asset no está disponible.
+Por ahora todos los modelos (jeep, dinosaurios, árboles, terreno) son
+primitivas de three.js generadas por código — no hay modelos ni texturas
+externas. Candidatos CC0 para sustituirlos por modelos glTF/GLB reales:
+[Kenney Car Kit](https://kenney.nl/assets/car-kit) (jeep),
+[Quaternius Animated LowPoly Dinosaurs](https://quaternius.itch.io/animated-lowpoly-dinosaurs)
+(dinosaurios con animaciones) y [Kenney Nature Kit](https://kenney.nl/assets/nature-kit)
+(vegetación). Al añadirlos, deben ir en `src/assets/` y cargarse vía
+`GLTFLoader` desde `src/scene/vehicle.ts` / `src/scene/dinosaurs.ts` /
+`src/scene/vegetation.ts`, manteniendo las primitivas actuales como
+*fallback* si el asset no está disponible.
 
 ## Despliegue en Vercel
 
