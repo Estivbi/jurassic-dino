@@ -2,14 +2,14 @@ import type { DinoData } from '@ride-types/ride'
 
 interface Props {
   dino: DinoData
+  onClose: () => void
 }
 
-export function DinoCard({ dino }: Props) {
+export function DinoCard({ dino, onClose }: Props) {
   return (
     <div
-      key={dino.id}
-      className="pointer-events-auto mx-auto w-full max-w-xl animate-[fadein_0.4s_ease] overflow-y-auto rounded-t-3xl border-t-2 bg-[#0c2a1cee] px-5 pb-4 pt-4 shadow-2xl backdrop-blur-md sm:rounded-3xl sm:border-2 sm:px-6 sm:pb-6"
-      style={{ borderColor: dino.accent, maxHeight: '54vh' }}
+      className="pointer-events-auto mx-auto w-full max-w-xl overflow-y-auto rounded-t-3xl border-t-2 bg-[#0c2a1cee] px-5 pb-4 pt-4 shadow-2xl backdrop-blur-md sm:rounded-3xl sm:border-2 sm:px-6 sm:pb-6"
+      style={{ borderColor: dino.accent, maxHeight: '70vh' }}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -21,6 +21,14 @@ export function DinoCard({ dino }: Props) {
           </h2>
           <p className="text-sm italic text-[var(--cream)]/60">{dino.scientificName}</p>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar ficha"
+          className="shrink-0 rounded-full border border-[var(--cream)]/30 px-3 py-1 text-sm text-[var(--cream)]/80 active:scale-95"
+        >
+          ✕
+        </button>
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm sm:grid-cols-3">

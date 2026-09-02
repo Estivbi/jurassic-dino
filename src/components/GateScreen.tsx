@@ -23,8 +23,12 @@ export function GateScreen({ onStart }: Props) {
       </div>
 
       <p className="mt-6 max-w-sm text-sm text-[var(--cream)]/75 sm:max-w-md sm:text-base">
-        Sube al jeep para un recorrido nocturno entre la niebla. Cuatro paradas, cuatro dinosaurios reales
-        y algún mito que nos ha durado demasiadas películas.
+        Conduce libremente por el parque entre la niebla nocturna. Cuatro dinosaurios reales patrullan
+        su zona — acércate para ver su ficha y algún mito que nos ha durado demasiadas películas.
+      </p>
+      <p className="mt-3 max-w-sm text-xs text-[var(--cream)]/55 sm:max-w-md sm:text-sm">
+        Flechas / WASD para conducir (o los botones en pantalla en móvil) · E para ver la ficha cuando
+        estés cerca de un dinosaurio
       </p>
 
       <button

@@ -1,8 +1,8 @@
-import type { RideApi } from '@hooks/useRide'
+import type { GameApi } from '@hooks/useGame'
 
 interface Props {
-  containerRef: RideApi['containerRef']
-  canvasRef: RideApi['canvasRef']
+  containerRef: GameApi['containerRef']
+  canvasRef: GameApi['canvasRef']
 }
 
 export function CanvasStage({ containerRef, canvasRef }: Props) {
