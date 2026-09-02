@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { DinoData } from '@ride-types/ride'
-import { getRideFrame } from './path'
 import { heightAtPosition } from './terrain'
+import { zones } from './zones'
 
 /** Geometrías unitarias reutilizadas por todos los dinosaurios: solo cambia el `scale` de cada mesh. */
 const GEO = {
@@ -39,21 +39,18 @@ function block(
   return mesh
 }
 
-export interface DinoInstance {
-  id: string
+interface DinoRig {
   group: THREE.Group
-  animate: (t: number) => void
+  animateLimbs: (t: number) => void
 }
 
-function buildVelociraptor(color: string): DinoInstance {
+function buildVelociraptor(color: string): DinoRig {
   const group = new THREE.Group()
   const dark = new THREE.Color(color).multiplyScalar(0.7).getStyle()
 
   block(group, color, [0.55, 0.6, 1.1], [0, 0.95, 0]) // torso
-  const tail = block(group, color, [0.25, 0.25, 1.6], [0, 0.9, -1.1], [0.15, 0, 0], GEO.cone)
-  tail.rotation.z = Math.PI / 2
+  const tail = block(group, color, [0.25, 0.25, 1.6], [0, 0.9, -1.2], [0, 0, 0], GEO.cone)
   tail.rotation.x = Math.PI / 2
-  tail.position.set(0, 0.9, -1.2)
   const head = block(group, dark, [0.32, 0.32, 0.55], [0, 1.35, 0.75])
   block(group, dark, [0.16, 0.16, 0.4], [0, 1.28, 1.15]) // hocico
 
@@ -62,22 +59,18 @@ function buildVelociraptor(color: string): DinoInstance {
   block(group, color, [0.15, 0.5, 0.15], [-0.16, 0.7, 0.55], [0.5, 0, 0], GEO.cylinder)
   block(group, color, [0.15, 0.5, 0.15], [0.16, 0.7, 0.55], [0.5, 0, 0], GEO.cylinder)
 
-  group.userData.parts = { tail, head, legL, legR }
-
   return {
-    id: 'velociraptor',
     group,
-    animate: (t) => {
+    animateLimbs: (t) => {
       tail.rotation.y = Math.sin(t * 2.4) * 0.35
       head.rotation.y = Math.sin(t * 1.6) * 0.25
-      legL.rotation.x = Math.sin(t * 3) * 0.12
-      legR.rotation.x = Math.sin(t * 3 + Math.PI) * 0.12
-      group.position.y += Math.sin(t * 3) * 0.0015
+      legL.rotation.x = Math.sin(t * 6) * 0.5
+      legR.rotation.x = Math.sin(t * 6 + Math.PI) * 0.5
     },
   }
 }
 
-function buildTriceratops(color: string): DinoInstance {
+function buildTriceratops(color: string): DinoRig {
   const group = new THREE.Group()
   const dark = new THREE.Color(color).multiplyScalar(0.75).getStyle()
 
@@ -102,19 +95,18 @@ function buildTriceratops(color: string): DinoInstance {
   const tail = block(group, color, [0.35, 0.35, 1.1], [0, 1.0, -1.6], [Math.PI / 2, 0, 0], GEO.cone)
 
   return {
-    id: 'triceratops',
     group,
-    animate: (t) => {
+    animateLimbs: (t) => {
       head.rotation.x = Math.sin(t * 0.8) * 0.05
       tail.rotation.z = Math.sin(t * 1.4) * 0.15
       legs.forEach((leg, i) => {
-        leg.scale.y = 1.1 + Math.sin(t * 1.6 + i) * 0.02
+        leg.rotation.x = Math.sin(t * 4 + i * Math.PI) * 0.35
       })
     },
   }
 }
 
-function buildBrachiosaurus(color: string): DinoInstance {
+function buildBrachiosaurus(color: string): DinoRig {
   const group = new THREE.Group()
   const dark = new THREE.Color(color).multiplyScalar(0.8).getStyle()
 
@@ -138,18 +130,19 @@ function buildBrachiosaurus(color: string): DinoInstance {
   for (const p of legPositions) legs.push(block(group, dark, [0.45, 2.6, 0.45], p, [0, 0, 0], GEO.cylinder))
 
   return {
-    id: 'brachiosaurus',
     group,
-    animate: (t) => {
+    animateLimbs: (t) => {
       neck.rotation.x = Math.sin(t * 0.35) * 0.06
       head.rotation.y = Math.sin(t * 0.5) * 0.2
       tail.rotation.y = Math.sin(t * 0.4) * 0.1
-      legs.forEach(() => {})
+      legs.forEach((leg, i) => {
+        leg.rotation.x = Math.sin(t * 1.5 + i * Math.PI) * 0.12
+      })
     },
   }
 }
 
-function buildTRex(color: string): DinoInstance {
+function buildTRex(color: string): DinoRig {
   const group = new THREE.Group()
   const dark = new THREE.Color(color).multiplyScalar(0.7).getStyle()
 
@@ -169,53 +162,91 @@ function buildTRex(color: string): DinoInstance {
   for (const p of legPositions) legs.push(block(group, color, [0.45, 2.1, 0.45], p, [0, 0, 0], GEO.cylinder))
 
   return {
-    id: 't-rex',
     group,
-    animate: (t) => {
+    animateLimbs: (t) => {
       head.rotation.y = Math.sin(t * 0.7) * 0.3
-      tail.rotation.y = Math.sin(t * 0.9) * 0.2
+      tail.rotation.y = Math.sin(t * 1.8) * 0.25
       armL.rotation.x = Math.sin(t * 1.5) * 0.1
       armR.rotation.x = Math.sin(t * 1.5 + 1) * 0.1
-      torso.position.y = 2.3 + Math.sin(t * 1.1) * 0.03
-      legs.forEach(() => {})
+      torso.position.y = 2.3 + Math.sin(t * 3.6) * 0.05
+      legs.forEach((leg, i) => {
+        leg.rotation.x = Math.sin(t * 3.6 + i * Math.PI) * 0.3
+      })
     },
   }
 }
 
-const BUILDERS: Record<string, (color: string) => DinoInstance> = {
+const BUILDERS: Record<string, (color: string) => DinoRig> = {
   velociraptor: buildVelociraptor,
   triceratops: buildTriceratops,
   brachiosaurus: buildBrachiosaurus,
   't-rex': buildTRex,
 }
 
+const WANDER_RADIUS = 22
+const WANDER_SPEED_RANGE: [number, number] = [1.1, 2.2]
+
+export interface DinoInstance {
+  id: string
+  group: THREE.Group
+  update: (dt: number, elapsed: number) => void
+}
+
+function randomPointNear(center: THREE.Vector2, radius: number): THREE.Vector2 {
+  const angle = Math.random() * Math.PI * 2
+  const dist = Math.random() * radius
+  return new THREE.Vector2(center.x + Math.cos(angle) * dist, center.y + Math.sin(angle) * dist)
+}
+
 export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[]): DinoInstance[] {
   const instances: DinoInstance[] = []
 
-  dinos.forEach((dino, i) => {
+  dinos.forEach((dino) => {
     const builder = BUILDERS[dino.id] ?? buildVelociraptor
-    const instance = builder(dino.color)
+    const rig = builder(dino.color)
 
-    const { position, tangent, normal } = getRideFrame(dino.stopT)
-    const side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize()
-    const sign = i % 2 === 0 ? 1 : -1
-    const offset = side.multiplyScalar(sign * (6 + (i % 3)))
+    const zone = zones.find((z) => z.id === dino.zoneId) ?? zones[0]
+    const home = new THREE.Vector2(zone.corner[0] * 0.55, zone.corner[1] * 0.55)
+    let target = randomPointNear(home, WANDER_RADIUS)
+    const speed = WANDER_SPEED_RANGE[0] + Math.random() * (WANDER_SPEED_RANGE[1] - WANDER_SPEED_RANGE[0])
+    let heading = 0
 
-    const finalPos = position.clone().add(offset)
-    finalPos.y = heightAtPosition(finalPos.x, finalPos.z)
-
-    instance.group.position.copy(finalPos)
-    instance.group.lookAt(position.x, finalPos.y, position.z)
-    void normal
+    const startY = heightAtPosition(home.x, home.y)
+    rig.group.position.set(home.x, startY, home.y)
 
     // Foco cálido tipo "exhibición nocturna de zoo" para que el dinosaurio destaque entre la niebla.
-    const spotlight = new THREE.PointLight(dino.accent, 4, 14, 2)
-    spotlight.position.set(0, 3.2, 0.5)
-    instance.group.add(spotlight)
+    const spotlight = new THREE.PointLight(dino.accent, 4, 16, 2)
+    spotlight.position.set(0, 3.4, 0.5)
+    rig.group.add(spotlight)
 
-    instance.group.userData.dinoId = dino.id
-    scene.add(instance.group)
-    instances.push(instance)
+    rig.group.userData.dinoId = dino.id
+    scene.add(rig.group)
+
+    const position2D = new THREE.Vector2(home.x, home.y)
+
+    instances.push({
+      id: dino.id,
+      group: rig.group,
+      update: (dt, elapsed) => {
+        const toTarget = target.clone().sub(position2D)
+        const distance = toTarget.length()
+        if (distance < 0.6) {
+          target = randomPointNear(home, WANDER_RADIUS)
+        } else {
+          toTarget.normalize()
+          position2D.addScaledVector(toTarget, Math.min(speed * dt, distance))
+          const desiredHeading = Math.atan2(toTarget.x, toTarget.y)
+          let delta = desiredHeading - heading
+          delta = Math.atan2(Math.sin(delta), Math.cos(delta))
+          heading += delta * Math.min(1, dt * 3)
+        }
+
+        const groundY = heightAtPosition(position2D.x, position2D.y)
+        rig.group.position.set(position2D.x, groundY, position2D.y)
+        rig.group.rotation.y = heading
+        rig.animateLimbs(elapsed)
+      },
+    })
   })
 
   return instances

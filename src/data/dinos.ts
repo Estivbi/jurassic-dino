@@ -15,7 +15,7 @@ export const dinos: DinoData[] = [
     emoji: '🦖',
     period: 'Cretácico superior',
     yearsAgo: 'hace 75-71 millones de años',
-    stopT: 0.18,
+    zoneId: 'jungla',
     color: '#8a6d3b',
     accent: '#f3b93f',
     stats: [
@@ -41,7 +41,7 @@ export const dinos: DinoData[] = [
     emoji: '🦕',
     period: 'Cretácico superior',
     yearsAgo: 'hace 68-66 millones de años',
-    stopT: 0.42,
+    zoneId: 'llanura',
     color: '#5b7a5b',
     accent: '#9fd8a3',
     stats: [
@@ -67,7 +67,7 @@ export const dinos: DinoData[] = [
     emoji: '🦕',
     period: 'Jurásico superior',
     yearsAgo: 'hace 154-150 millones de años',
-    stopT: 0.66,
+    zoneId: 'laguna',
     color: '#3f6b8a',
     accent: '#8fd7e8',
     stats: [
@@ -93,7 +93,7 @@ export const dinos: DinoData[] = [
     emoji: '🦖',
     period: 'Cretácico superior (Maastrichtiense)',
     yearsAgo: 'hace 68-66 millones de años',
-    stopT: 0.88,
+    zoneId: 'rocosa',
     color: '#7a3b3b',
     accent: '#f36b3f',
     stats: [

@@ -1,5 +1,7 @@
 export type QualityLevel = 'high' | 'low'
 
+export type ZoneId = 'jungla' | 'llanura' | 'rocosa' | 'laguna'
+
 export interface DinoStat {
   label: string
   value: string
@@ -12,7 +14,7 @@ export interface DinoData {
   emoji: string
   period: string
   yearsAgo: string
-  stopT: number
+  zoneId: ZoneId
   color: string
   accent: string
   stats: DinoStat[]
@@ -22,11 +24,4 @@ export interface DinoData {
   truth: string
 }
 
-/** -1 = puerta de entrada, 0..N-1 = paradas, N = puerta de salida */
-export type RideStopIndex = number
-
-export interface RideProgressInfo {
-  index: RideStopIndex
-  t: number
-  isAnimating: boolean
-}
+export type GamePhase = 'gate' | 'driving'

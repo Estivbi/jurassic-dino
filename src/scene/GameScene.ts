@@ -1,28 +1,32 @@
 import * as THREE from 'three'
 import type { DinoData, QualityLevel } from '@ride-types/ride'
 import { getQualitySettings, type QualitySettings } from './quality'
-import { getRideFrame, buildRoadMesh } from './path'
-import { buildTerrain } from './terrain'
+import { buildTerrain, buildLagoon, heightAtPosition } from './terrain'
 import { buildLighting, type LightingRig } from './lighting'
 import { buildVegetation } from './vegetation'
 import { buildDinosaurs, type DinoInstance } from './dinosaurs'
+import { Vehicle, type VehicleInput } from './vehicle'
+import { WORLD_BOUNDS } from './constants'
+import { zones } from './zones'
 
-export class RideScene {
+const PROXIMITY_RADIUS = 13
+
+export class GameScene {
   private renderer: THREE.WebGLRenderer
   private scene = new THREE.Scene()
   private camera: THREE.PerspectiveCamera
-  private jeep = new THREE.Group()
   private lighting: LightingRig
   private dinoInstances: DinoInstance[]
-  private dinoLookups: { t: number; position: THREE.Vector3 }[]
+  private vehicle: Vehicle
   private quality: QualitySettings
   private frameId: number | null = null
   private timer = new THREE.Timer()
+  private nearbyDinoId: string | null = null
 
-  // temporales reutilizados para no asignar memoria cada frame
+  private tmpDesiredCam = new THREE.Vector3()
   private tmpLookTarget = new THREE.Vector3()
-  private tmpDinoFocus = new THREE.Vector3()
-  private tmpUp = new THREE.Vector3(0, 1, 0)
+  private tmpForward = new THREE.Vector3()
+  private tmpMoonOffset = new THREE.Vector3(-30, 60, -20)
 
   constructor(canvas: HTMLCanvasElement, dinos: DinoData[], qualityLevel: QualityLevel) {
     this.quality = getQualitySettings(qualityLevel)
@@ -37,17 +41,18 @@ export class RideScene {
     this.renderer.shadowMap.type = THREE.PCFShadowMap
 
     this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, this.quality.fogFar + 20)
-    this.jeep.add(this.camera)
-    this.scene.add(this.jeep)
 
     this.lighting = buildLighting(this.scene, this.quality)
-    this.jeep.add(this.lighting.headlights)
 
     this.scene.add(buildTerrain())
-    this.scene.add(buildRoadMesh())
+    const lagunaZone = zones.find((z) => z.id === 'laguna')!
+    this.scene.add(buildLagoon(lagunaZone.corner[0] * 0.55, lagunaZone.corner[1] * 0.55, 32))
     buildVegetation(this.scene, this.quality.vegetationCount)
     this.dinoInstances = buildDinosaurs(this.scene, dinos)
-    this.dinoLookups = dinos.map((dino, i) => ({ t: dino.stopT, position: this.dinoInstances[i].group.position }))
+
+    const startY = heightAtPosition(0, 6)
+    this.vehicle = new Vehicle(new THREE.Vector3(0, startY, 6), Math.PI)
+    this.scene.add(this.vehicle.model.group)
 
     this.resize()
   }
@@ -62,49 +67,51 @@ export class RideScene {
     this.camera.updateProjectionMatrix()
   }
 
-  /** Coloca el jeep/cámara en un punto del recorrido (0..1) y anima al resto de la escena. */
-  setProgress(t: number): void {
-    const { position, tangent } = getRideFrame(t)
+  getNearbyDinoId(): string | null {
+    return this.nearbyDinoId
+  }
+
+  update(input: VehicleInput): void {
     this.timer.update()
+    const dt = Math.min(this.timer.getDelta(), 0.1)
     const elapsed = this.timer.getElapsed()
 
-    const bob = Math.sin(elapsed * 5.5) * 0.02
-    const sway = Math.sin(elapsed * 1.7) * 0.03
+    this.vehicle.update(input, dt, heightAtPosition, WORLD_BOUNDS)
 
-    this.jeep.position.set(position.x + sway, position.y + 1.7 + bob, position.z)
+    this.tmpForward.copy(this.vehicle.forwardVector())
+    this.tmpDesiredCam.copy(this.vehicle.position).addScaledVector(this.tmpForward, -6.5)
+    this.tmpDesiredCam.y += 3.4
+    const camLerp = Math.min(1, dt * 5)
+    this.camera.position.lerp(this.tmpDesiredCam, camLerp)
 
-    this.tmpLookTarget.copy(this.jeep.position).addScaledVector(tangent, 10)
-
-    // Al llegar a una parada, la mirada gira suavemente hacia el dinosaurio en vez de seguir mirando al frente.
-    let nearestDist = Infinity
-    let nearestPos: THREE.Vector3 | null = null
-    for (const lookup of this.dinoLookups) {
-      const d = Math.abs(lookup.t - t)
-      if (d < nearestDist) {
-        nearestDist = d
-        nearestPos = lookup.position
-      }
-    }
-    const focusRange = 0.045
-    if (nearestPos && nearestDist < focusRange) {
-      const blend = 1 - nearestDist / focusRange
-      this.tmpDinoFocus.copy(nearestPos).y += 1.6
-      this.tmpLookTarget.lerp(this.tmpDinoFocus, blend * blend)
-    }
-
-    this.camera.up.copy(this.tmpUp)
+    this.tmpLookTarget.copy(this.vehicle.position).addScaledVector(this.tmpForward, 5)
+    this.tmpLookTarget.y += 1.1
     this.camera.lookAt(this.tmpLookTarget)
 
-    for (const dino of this.dinoInstances) dino.animate(elapsed)
+    this.lighting.moon.position.copy(this.vehicle.position).add(this.tmpMoonOffset)
+    this.lighting.moon.target.position.copy(this.vehicle.position)
+
+    let closestId: string | null = null
+    let closestDist = PROXIMITY_RADIUS
+    for (const dino of this.dinoInstances) {
+      dino.update(dt, elapsed)
+      const dist = dino.group.position.distanceTo(this.vehicle.position)
+      if (dist < closestDist) {
+        closestDist = dist
+        closestId = dino.id
+      }
+    }
+    this.nearbyDinoId = closestId
   }
 
   render(): void {
     this.renderer.render(this.scene, this.camera)
   }
 
-  startLoop(onFrame?: () => void): void {
+  startLoop(onFrame: (nearbyDinoId: string | null) => void, getInput: () => VehicleInput): void {
     const loop = () => {
-      onFrame?.()
+      this.update(getInput())
+      onFrame(this.nearbyDinoId)
       this.render()
       this.frameId = requestAnimationFrame(loop)
     }

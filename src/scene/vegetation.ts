@@ -1,19 +1,7 @@
 import * as THREE from 'three'
-import { rideCurve } from './path'
+import { WORLD_BOUNDS } from './constants'
 import { heightAtPosition } from './terrain'
-
-const ROAD_SAMPLES = rideCurve.getSpacedPoints(120)
-
-function distanceToRoad(x: number, z: number): number {
-  let min = Infinity
-  for (const p of ROAD_SAMPLES) {
-    const dx = p.x - x
-    const dz = p.z - z
-    const d = dx * dx + dz * dz
-    if (d < min) min = d
-  }
-  return Math.sqrt(min)
-}
+import { blendVegetationDensity } from './zones'
 
 function mulberry32(seed: number) {
   let a = seed
@@ -26,9 +14,9 @@ function mulberry32(seed: number) {
   }
 }
 
-export function buildVegetation(scene: THREE.Scene, count: number): void {
+export function buildVegetation(scene: THREE.Scene, baseCount: number): void {
   const rand = mulberry32(1337)
-  const bounds = 140
+  const spawnExclusion = 10
 
   const trunkGeo = new THREE.CylinderGeometry(0.12, 0.18, 1, 6)
   const canopyGeo = new THREE.ConeGeometry(1, 1, 7)
@@ -38,12 +26,13 @@ export function buildVegetation(scene: THREE.Scene, count: number): void {
   const canopyMat = new THREE.MeshStandardMaterial({ color: '#123d24', roughness: 0.9 })
   const fernMat = new THREE.MeshStandardMaterial({ color: '#1c5230', roughness: 0.9 })
 
-  const treeCount = Math.round(count * 0.55)
-  const fernCount = count - treeCount
+  // baseCount es el máximo posible; la densidad real por punto depende de la zona (jungla >> llanura/rocosa).
+  const maxTrees = Math.round(baseCount * 0.55)
+  const maxFerns = baseCount - maxTrees
 
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, treeCount)
-  const canopies = new THREE.InstancedMesh(canopyGeo, canopyMat, treeCount)
-  const ferns = new THREE.InstancedMesh(fernGeo, fernMat, fernCount)
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, maxTrees)
+  const canopies = new THREE.InstancedMesh(canopyGeo, canopyMat, maxTrees)
+  const ferns = new THREE.InstancedMesh(fernGeo, fernMat, maxFerns)
   trunks.castShadow = true
   canopies.castShadow = true
   trunks.receiveShadow = true
@@ -51,11 +40,12 @@ export function buildVegetation(scene: THREE.Scene, count: number): void {
   const dummy = new THREE.Object3D()
   let placedTrees = 0
   let attempts = 0
-  while (placedTrees < treeCount && attempts < treeCount * 20) {
+  while (placedTrees < maxTrees && attempts < maxTrees * 20) {
     attempts++
-    const x = (rand() - 0.5) * bounds
-    const z = rand() * -150 + 8
-    if (distanceToRoad(x, z) < 5.5) continue
+    const x = (rand() * 2 - 1) * WORLD_BOUNDS
+    const z = (rand() * 2 - 1) * WORLD_BOUNDS
+    if (Math.hypot(x, z) < spawnExclusion) continue
+    if (rand() > blendVegetationDensity(x, z)) continue
 
     const y = heightAtPosition(x, z)
     const trunkHeight = 2.4 + rand() * 2.2
@@ -76,11 +66,12 @@ export function buildVegetation(scene: THREE.Scene, count: number): void {
 
   let placedFerns = 0
   attempts = 0
-  while (placedFerns < fernCount && attempts < fernCount * 20) {
+  while (placedFerns < maxFerns && attempts < maxFerns * 20) {
     attempts++
-    const x = (rand() - 0.5) * bounds
-    const z = rand() * -150 + 8
-    if (distanceToRoad(x, z) < 3) continue
+    const x = (rand() * 2 - 1) * WORLD_BOUNDS
+    const z = (rand() * 2 - 1) * WORLD_BOUNDS
+    if (Math.hypot(x, z) < spawnExclusion * 0.6) continue
+    if (rand() > blendVegetationDensity(x, z)) continue
 
     const y = heightAtPosition(x, z)
     const size = 0.5 + rand() * 0.6
