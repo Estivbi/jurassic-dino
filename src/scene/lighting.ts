@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import type { QualitySettings } from './quality'
 
 export interface LightingRig {
-  headlights: THREE.Group
   moon: THREE.DirectionalLight
 }
 
@@ -31,22 +30,5 @@ export function buildLighting(scene: THREE.Scene, quality: QualitySettings): Lig
   scene.add(moon)
   scene.add(moon.target)
 
-  const headlights = new THREE.Group()
-  headlights.name = 'headlights'
-
-  const leftLight = new THREE.SpotLight('#ffd9a0', 10, quality.fogFar * 0.8, Math.PI / 7, 0.5, 1.4)
-  leftLight.position.set(-0.6, 0.6, 0.4)
-  const leftTarget = new THREE.Object3D()
-  leftTarget.position.set(-0.6, 0.2, -8)
-  leftLight.target = leftTarget
-
-  const rightLight = leftLight.clone()
-  rightLight.position.set(0.6, 0.6, 0.4)
-  const rightTarget = new THREE.Object3D()
-  rightTarget.position.set(0.6, 0.2, -8)
-  rightLight.target = rightTarget
-
-  headlights.add(leftLight, leftTarget, rightLight, rightTarget)
-
-  return { headlights, moon }
+  return { moon }
 }
