@@ -51,30 +51,40 @@ export function useRide(): RideApi {
 
     // three.js pesa la mayor parte del bundle: se carga bajo demanda para que la
     // valla de entrada (HTML/CSS/React) pinte de inmediato mientras la escena llega en paralelo.
-    import('@scene/RideScene').then(({ RideScene }) => {
-      if (cancelled || !canvasRef.current) return
-      const scene = new RideScene(canvasRef.current, dinos, detectQuality())
-      sceneRef.current = scene
+    import('@scene/RideScene')
+      .then(({ RideScene }) => {
+        if (cancelled || !canvasRef.current) return
+        const scene = new RideScene(canvasRef.current, dinos, detectQuality())
+        sceneRef.current = scene
 
-      scene.startLoop(() => {
-        const tween = tweenRef.current
-        if (tween.active) {
-          const elapsed = performance.now() - tween.start
-          const raw = Math.min(elapsed / tween.duration, 1)
-          const eased = easeInOutCubic(raw)
-          liveTRef.current = tween.from + (tween.to - tween.from) * eased
-          setProgressPercent(liveTRef.current * 100)
-          if (raw >= 1) {
-            tween.active = false
-            setIsAnimating(false)
-          }
+        if (tweenRef.current.active) {
+          tweenRef.current.start = performance.now()
         }
-        scene.setProgress(liveTRef.current)
-      })
 
-      resizeObserver = new ResizeObserver(() => scene.resize())
-      if (containerRef.current) resizeObserver.observe(containerRef.current)
-    })
+        scene.startLoop(() => {
+          const tween = tweenRef.current
+          if (tween.active) {
+            const elapsed = performance.now() - tween.start
+            const raw = Math.min(elapsed / tween.duration, 1)
+            const eased = easeInOutCubic(raw)
+            liveTRef.current = tween.from + (tween.to - tween.from) * eased
+            setProgressPercent(liveTRef.current * 100)
+            if (raw >= 1) {
+              tween.active = false
+              setIsAnimating(false)
+            }
+          }
+          scene.setProgress(liveTRef.current)
+        })
+
+        resizeObserver = new ResizeObserver(() => scene.resize())
+        if (containerRef.current) resizeObserver.observe(containerRef.current)
+      })
+      .catch(() => {
+        if (cancelled) return
+        tweenRef.current.active = false
+        setIsAnimating(false)
+      })
 
     return () => {
       cancelled = true
