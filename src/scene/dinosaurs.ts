@@ -1,7 +1,26 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
 import type { DinoData } from '@ride-types/ride'
 import { heightAtPosition } from './terrain'
 import { zones } from './zones'
+import trexUrl from '@assets/models/trex.opt.glb?url'
+import brachiosaurusUrl from '@assets/models/brachiosaurus.opt.glb?url'
+
+interface ModelConfig {
+  url: string
+  scale: number
+  rotationY: number
+}
+
+/** Modelos glTF reales para las especies que ya tienen un asset descargado; el resto sigue con primitivas. */
+const MODEL_CONFIG: Partial<Record<string, ModelConfig>> = {
+  't-rex': { url: trexUrl, scale: 1, rotationY: 0 },
+  brachiosaurus: { url: brachiosaurusUrl, scale: 1, rotationY: 0 },
+}
+
+const gltfLoader = new GLTFLoader()
+gltfLoader.setMeshoptDecoder(MeshoptDecoder)
 
 /** Geometrías unitarias reutilizadas por todos los dinosaurios: solo cambia el `scale` de cada mesh. */
 const GEO = {
@@ -222,6 +241,29 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[]): DinoInsta
     rig.group.userData.dinoId = dino.id
     scene.add(rig.group)
 
+    let animateVisual = rig.animateLimbs
+    const modelConfig = MODEL_CONFIG[dino.id]
+    if (modelConfig) {
+      gltfLoader.load(modelConfig.url, (gltf) => {
+        // Quita las primitivas de recambio (menos el foco) y deja el modelo real en su lugar.
+        for (const child of [...rig.group.children]) {
+          if (child instanceof THREE.Mesh) rig.group.remove(child)
+        }
+        gltf.scene.scale.setScalar(modelConfig.scale)
+        gltf.scene.rotation.y = modelConfig.rotationY
+        gltf.scene.traverse((obj) => {
+          if (obj instanceof THREE.Mesh) {
+            obj.castShadow = true
+            obj.receiveShadow = true
+          }
+        })
+        rig.group.add(gltf.scene)
+        animateVisual = (t) => {
+          gltf.scene.position.y = Math.sin(t * 1.2) * 0.05
+        }
+      })
+    }
+
     const position2D = new THREE.Vector2(home.x, home.y)
 
     instances.push({
@@ -244,7 +286,7 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[]): DinoInsta
         const groundY = heightAtPosition(position2D.x, position2D.y)
         rig.group.position.set(position2D.x, groundY, position2D.y)
         rig.group.rotation.y = heading
-        rig.animateLimbs(elapsed)
+        animateVisual(elapsed)
       },
     })
   })
