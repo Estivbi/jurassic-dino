@@ -83,16 +83,38 @@ geometrías y materiales cacheados para evitar asignar memoria en cada frame.
 
 ### Assets
 
-Por ahora todos los modelos (jeep, dinosaurios, árboles, terreno) son
-primitivas de three.js generadas por código — no hay modelos ni texturas
-externas. Candidatos CC0 para sustituirlos por modelos glTF/GLB reales:
-[Kenney Car Kit](https://kenney.nl/assets/car-kit) (jeep),
-[Quaternius Animated LowPoly Dinosaurs](https://quaternius.itch.io/animated-lowpoly-dinosaurs)
-(dinosaurios con animaciones) y [Kenney Nature Kit](https://kenney.nl/assets/nature-kit)
-(vegetación). Al añadirlos, deben ir en `src/assets/` y cargarse vía
-`GLTFLoader` desde `src/scene/vehicle.ts` / `src/scene/dinosaurs.ts` /
-`src/scene/vegetation.ts`, manteniendo las primitivas actuales como
-*fallback* si el asset no está disponible.
+El T-Rex y el Brachiosaurio usan ya modelos glTF reales (piel/escamas
+texturizadas con PBR) en `src/assets/models/*.opt.glb`, cargados de forma
+asíncrona en `src/scene/dinosaurs.ts` vía `GLTFLoader`. Mientras el modelo
+carga (o si `MODEL_CONFIG` no tiene entrada para una especie) se ve la
+primitiva de recambio — así el Triceratops, el Velociraptor y el jeep siguen
+con primitivas hasta que se sustituyan por assets reales igual de buenos.
+
+**Optimizar un `.glb` nuevo antes de añadirlo** (los modelos de bancos como
+Sketchfab suelen venir con texturas de 4K/8K que revientan la VRAM en
+móvil):
+
+```bash
+npx @gltf-transform/cli optimize entrada.glb salida.opt.glb --texture-size 1024 --compress meshopt
+```
+
+Si el resultado usa compresión Meshopt (como aquí), el loader necesita el
+decodificador — ya está configurado en `dinosaurs.ts`:
+
+```ts
+gltfLoader.setMeshoptDecoder(MeshoptDecoder)
+```
+
+Para añadir un modelo a una nueva especie: importa el `.glb` con
+`import url from '@assets/models/xxx.opt.glb?url'` y añade una entrada a
+`MODEL_CONFIG` en `src/scene/dinosaurs.ts` con `scale`/`rotationY` ajustados
+a ojo (compara con el jeep en una captura).
+
+Candidatos pendientes de revisar visualmente antes de integrar (no vale
+fiarse del título/descripción del listado — hay que verlos en 3D primero):
+generadores texto→3D como [Meshy](https://www.meshy.ai) o
+[Tripo3D](https://www.tripo3d.ai), o bancos de pago (Sketchfab Store,
+TurboSquid) para más consistencia de calidad que lo gratuito.
 
 ## Despliegue en Vercel
 
