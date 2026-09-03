@@ -241,27 +241,34 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[]): DinoInsta
     rig.group.userData.dinoId = dino.id
     scene.add(rig.group)
 
+    // Referencia a todo lo que forma la primitiva de recambio (meshes y sub-grupos como el
+    // cuello del Brachiosaurio) tomada antes de añadir el foco, para poder retirarla entera
+    // y sin colgajos en cuanto llegue el modelo real.
+    const fallbackChildren = [...rig.group.children]
+
     let animateVisual = rig.animateLimbs
     const modelConfig = MODEL_CONFIG[dino.id]
     if (modelConfig) {
-      gltfLoader.load(modelConfig.url, (gltf) => {
-        // Quita las primitivas de recambio (menos el foco) y deja el modelo real en su lugar.
-        for (const child of [...rig.group.children]) {
-          if (child instanceof THREE.Mesh) rig.group.remove(child)
-        }
-        gltf.scene.scale.setScalar(modelConfig.scale)
-        gltf.scene.rotation.y = modelConfig.rotationY
-        gltf.scene.traverse((obj) => {
-          if (obj instanceof THREE.Mesh) {
-            obj.castShadow = true
-            obj.receiveShadow = true
+      gltfLoader.load(
+        modelConfig.url,
+        (gltf) => {
+          for (const child of fallbackChildren) rig.group.remove(child)
+          gltf.scene.scale.setScalar(modelConfig.scale)
+          gltf.scene.rotation.y = modelConfig.rotationY
+          gltf.scene.traverse((obj) => {
+            if (obj instanceof THREE.Mesh) {
+              obj.castShadow = true
+              obj.receiveShadow = true
+            }
+          })
+          rig.group.add(gltf.scene)
+          animateVisual = (t) => {
+            gltf.scene.position.y = Math.sin(t * 1.2) * 0.05
           }
-        })
-        rig.group.add(gltf.scene)
-        animateVisual = (t) => {
-          gltf.scene.position.y = Math.sin(t * 1.2) * 0.05
-        }
-      })
+        },
+        undefined,
+        (error) => console.error(`No se pudo cargar el modelo de ${dino.id}, se mantiene la primitiva de recambio:`, error),
+      )
     }
 
     const position2D = new THREE.Vector2(home.x, home.y)

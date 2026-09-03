@@ -76,6 +76,10 @@ export class GameScene {
     this.vehicle.position.set(x, heightAtPosition(x, z), z)
     this.vehicle.speed = 0
     if (heading !== undefined) this.vehicle.heading = heading
+    // Sincroniza el modelo visible de inmediato: si el bucle está en pausa (input a cero
+    // porque hay una ficha abierta), vehicle.update() no se ejecutaría hasta el próximo frame.
+    this.vehicle.model.group.position.copy(this.vehicle.position)
+    this.vehicle.model.group.rotation.y = this.vehicle.heading
   }
 
   /** Expuesto para depuración manual: posición actual de un dinosaurio por id. */
