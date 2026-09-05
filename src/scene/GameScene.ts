@@ -71,6 +71,23 @@ export class GameScene {
     return this.nearbyDinoId
   }
 
+  /** Expuesto para depuración manual (consola del navegador): teletransporta el jeep (heading opcional, en radianes). */
+  teleport(x: number, z: number, heading?: number): void {
+    this.vehicle.position.set(x, heightAtPosition(x, z), z)
+    this.vehicle.speed = 0
+    if (heading !== undefined) this.vehicle.heading = heading
+    // Sincroniza el modelo visible de inmediato: si el bucle está en pausa (input a cero
+    // porque hay una ficha abierta), vehicle.update() no se ejecutaría hasta el próximo frame.
+    this.vehicle.model.group.position.copy(this.vehicle.position)
+    this.vehicle.model.group.rotation.y = this.vehicle.heading
+  }
+
+  /** Expuesto para depuración manual: posición actual de un dinosaurio por id. */
+  getDinoPosition(id: string): { x: number; y: number; z: number } | null {
+    const dino = this.dinoInstances.find((d) => d.id === id)
+    return dino ? { x: dino.group.position.x, y: dino.group.position.y, z: dino.group.position.z } : null
+  }
+
   /** Expuesto para depuración manual (consola del navegador): posición y rumbo actuales del jeep. */
   getVehicleState(): { x: number; y: number; z: number; heading: number } {
     return {
