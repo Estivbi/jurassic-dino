@@ -18,6 +18,7 @@ export default function App() {
           openCard={game.openCard}
           closeCard={game.closeCard}
           pressTouch={game.pressTouch}
+          getMinimapSnapshot={game.getMinimapSnapshot}
         />
       )}
 

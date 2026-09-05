@@ -5,16 +5,16 @@ export interface LightingRig {
   moon: THREE.DirectionalLight
 }
 
-const FOG_COLOR = new THREE.Color('#0a1c15')
+const FOG_COLOR = new THREE.Color('#1a301f')
 
 export function buildLighting(scene: THREE.Scene, quality: QualitySettings): LightingRig {
-  scene.fog = new THREE.FogExp2(FOG_COLOR, 1.9 / quality.fogFar)
-  scene.background = FOG_COLOR
+  scene.fog = new THREE.FogExp2(FOG_COLOR, 1.35 / quality.fogFar)
+  scene.background = FOG_COLOR.clone()
 
-  const hemi = new THREE.HemisphereLight('#16283a', '#0a1f14', 0.75)
+  const hemi = new THREE.HemisphereLight('#2c4a5c', '#1c3524', 1.15)
   scene.add(hemi)
 
-  const moon = new THREE.DirectionalLight('#a9c4d8', 0.5)
+  const moon = new THREE.DirectionalLight('#cfe0ea', 0.9)
   moon.position.set(-30, 60, -20)
   if (quality.shadows) {
     moon.castShadow = true
