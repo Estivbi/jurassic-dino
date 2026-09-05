@@ -6,7 +6,6 @@ export interface Zone {
   label: string
   /** Esquina del mapa que representa esta zona, en unidades de mundo. */
   corner: [number, number]
-  fogColor: THREE.Color
   groundTint: THREE.Color
   vegetationDensity: number
 }
@@ -16,7 +15,6 @@ export const zones: Zone[] = [
     id: 'jungla',
     label: 'Jungla densa',
     corner: [-WORLD_BOUNDS, -WORLD_BOUNDS],
-    fogColor: new THREE.Color('#15301f'),
     groundTint: new THREE.Color('#1a4028'),
     vegetationDensity: 1.4,
   },
@@ -24,7 +22,6 @@ export const zones: Zone[] = [
     id: 'llanura',
     label: 'La llanura del paddock',
     corner: [WORLD_BOUNDS, -WORLD_BOUNDS],
-    fogColor: new THREE.Color('#294a30'),
     groundTint: new THREE.Color('#3d6b45'),
     vegetationDensity: 0.4,
   },
@@ -32,7 +29,6 @@ export const zones: Zone[] = [
     id: 'rocosa',
     label: 'Tierras rocosas',
     corner: [-WORLD_BOUNDS, WORLD_BOUNDS],
-    fogColor: new THREE.Color('#332d20'),
     groundTint: new THREE.Color('#665640'),
     vegetationDensity: 0.25,
   },
@@ -40,7 +36,6 @@ export const zones: Zone[] = [
     id: 'laguna',
     label: 'La laguna',
     corner: [WORLD_BOUNDS, WORLD_BOUNDS],
-    fogColor: new THREE.Color('#1a3a42'),
     groundTint: new THREE.Color('#2a5850'),
     vegetationDensity: 0.7,
   },
