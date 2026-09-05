@@ -8,8 +8,14 @@ import { buildDinosaurs, type DinoInstance } from './dinosaurs'
 import { Vehicle, type VehicleInput } from './vehicle'
 import { WORLD_BOUNDS } from './constants'
 import { zones } from './zones'
+import { createDayNightController, type DayNightController } from './dayNightCycle'
 
 const PROXIMITY_RADIUS = 13
+
+export interface MinimapSnapshot {
+  player: { x: number; z: number; heading: number }
+  dinos: { id: string; x: number; z: number; color: string }[]
+}
 
 export class GameScene {
   private renderer: THREE.WebGLRenderer
@@ -17,8 +23,10 @@ export class GameScene {
   private camera: THREE.PerspectiveCamera
   private lighting: LightingRig
   private dinoInstances: DinoInstance[]
+  private dinoColors = new Map<string, string>()
   private vehicle: Vehicle
   private quality: QualitySettings
+  private dayNight: DayNightController
   private frameId: number | null = null
   private timer = new THREE.Timer()
   private nearbyDinoId: string | null = null
@@ -26,7 +34,7 @@ export class GameScene {
   private tmpDesiredCam = new THREE.Vector3()
   private tmpLookTarget = new THREE.Vector3()
   private tmpForward = new THREE.Vector3()
-  private tmpMoonOffset = new THREE.Vector3(-30, 60, -20)
+  private tmpSkyColor = new THREE.Color()
 
   constructor(canvas: HTMLCanvasElement, dinos: DinoData[], qualityLevel: QualityLevel) {
     this.quality = getQualitySettings(qualityLevel)
@@ -39,16 +47,20 @@ export class GameScene {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality.pixelRatioCap))
     this.renderer.shadowMap.enabled = this.quality.shadows
     this.renderer.shadowMap.type = THREE.PCFShadowMap
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.4
 
     this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, this.quality.fogFar + 20)
 
     this.lighting = buildLighting(this.scene, this.quality)
+    this.dayNight = createDayNightController()
 
     this.scene.add(buildTerrain())
     const lagunaZone = zones.find((z) => z.id === 'laguna')!
     this.scene.add(buildLagoon(lagunaZone.corner[0] * 0.55, lagunaZone.corner[1] * 0.55, 32))
     buildVegetation(this.scene, this.quality.vegetationCount)
     this.dinoInstances = buildDinosaurs(this.scene, dinos)
+    for (const dino of dinos) this.dinoColors.set(dino.id, dino.accent)
 
     const startY = heightAtPosition(0, 6)
     this.vehicle = new Vehicle(new THREE.Vector3(0, startY, 6), Math.PI)
@@ -98,6 +110,19 @@ export class GameScene {
     }
   }
 
+  /** Snapshot en el plano XZ para el minimapa del HUD: posición del jeep y de cada dinosaurio. */
+  getMinimapSnapshot(): MinimapSnapshot {
+    return {
+      player: { x: this.vehicle.position.x, z: this.vehicle.position.z, heading: this.vehicle.heading },
+      dinos: this.dinoInstances.map((dino) => ({
+        id: dino.id,
+        x: dino.group.position.x,
+        z: dino.group.position.z,
+        color: this.dinoColors.get(dino.id) ?? '#f3ecd6',
+      })),
+    }
+  }
+
   update(input: VehicleInput): void {
     this.timer.update()
     const dt = Math.min(this.timer.getDelta(), 0.1)
@@ -115,8 +140,29 @@ export class GameScene {
     this.tmpLookTarget.y += 1.1
     this.camera.lookAt(this.tmpLookTarget)
 
-    this.lighting.moon.position.copy(this.vehicle.position).add(this.tmpMoonOffset)
-    this.lighting.moon.target.position.copy(this.vehicle.position)
+    const sky = this.dayNight.getSkyState()
+
+    this.lighting.sun.position.copy(this.vehicle.position)
+    this.lighting.sun.position.x -= 30
+    this.lighting.sun.position.z -= 20
+    this.lighting.sun.position.y += sky.sunHeight
+    this.lighting.sun.target.position.copy(this.vehicle.position)
+    this.lighting.sun.color.set(sky.sunColor)
+    this.lighting.sun.intensity = sky.sunIntensity
+
+    this.lighting.hemi.color.set(sky.hemiSky)
+    this.lighting.hemi.groundColor.set(sky.hemiGround)
+    this.lighting.hemi.intensity = sky.hemiIntensity
+
+    this.renderer.toneMappingExposure = sky.exposure
+
+    this.tmpSkyColor.set(sky.sky)
+    if (this.scene.fog) {
+      const fog = this.scene.fog as THREE.FogExp2
+      fog.color.copy(this.tmpSkyColor)
+      fog.density = (1.35 / this.quality.fogFar) * sky.fogDensityScale
+    }
+    ;(this.scene.background as THREE.Color).copy(this.tmpSkyColor)
 
     let closestId: string | null = null
     let closestDist = PROXIMITY_RADIUS

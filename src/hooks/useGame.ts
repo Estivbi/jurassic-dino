@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { dinos } from '@data/dinos'
 import { detectQuality } from '@scene/quality'
 import { createInputState, attachKeyboardControls, type InputState } from '@scene/input'
-import type { GameScene } from '@scene/GameScene'
+import type { GameScene, MinimapSnapshot } from '@scene/GameScene'
 import type { GamePhase } from '@ride-types/ride'
 
 const ZERO_INPUT: InputState = { forward: false, back: false, left: false, right: false }
@@ -19,6 +19,7 @@ export interface GameApi {
   openCard: () => void
   closeCard: () => void
   pressTouch: (key: keyof InputState, pressed: boolean) => void
+  getMinimapSnapshot: () => MinimapSnapshot | null
 }
 
 export function useGame(): GameApi {
@@ -104,6 +105,8 @@ export function useGame(): GameApi {
     inputRef.current[key] = pressed
   }, [])
 
+  const getMinimapSnapshot = useCallback(() => sceneRef.current?.getMinimapSnapshot() ?? null, [])
+
   const nearbyDino = nearbyDinoId ? (dinos.find((d) => d.id === nearbyDinoId) ?? null) : null
   const cardDino = cardOpenId ? (dinos.find((d) => d.id === cardOpenId) ?? null) : null
 
@@ -119,5 +122,6 @@ export function useGame(): GameApi {
     openCard,
     closeCard,
     pressTouch,
+    getMinimapSnapshot,
   }
 }

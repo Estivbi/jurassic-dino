@@ -1,7 +1,7 @@
 # Parque Jurásico 3D 🦖
 
-Una web-regalo interactiva: conduces libremente un jeep por un parque
-nocturno entre la niebla, con 4 dinosaurios reales patrullando su zona (cada
+Una web-regalo interactiva: conduces libremente un jeep por un parque con
+ciclo real de día/noche, con 4 dinosaurios reales patrullando su zona (cada
 uno con datos reales y un mito desmontado). Sin backend, sin dependencias de
 pago — pensada para desplegarse gratis en Vercel como sitio estático.
 
@@ -11,6 +11,7 @@ pago — pensada para desplegarse gratis en Vercel como sitio estático.
 - [three.js](https://threejs.org) para la escena 3D (terreno, mundo abierto
   por zonas, niebla, luces, vehículo y dinosaurios low-poly)
 - [Framer Motion](https://motion.dev) para las transiciones del HUD (React)
+- [SunCalc](https://github.com/mourner/suncalc) para calcular amanecer/atardecer reales
 - Tailwind CSS v4 solo para utilidades de layout del HUD; el resto de la
   estética vive en `src/index.css`
 
@@ -72,6 +73,27 @@ vegetación se interpolan suavemente según la posición del jeep — de ahí qu
 el paisaje cambie según por dónde conduzcas. Acercarte a un dinosaurio (radio
 definido en `GameScene`) dispara el aviso de proximidad en el HUD; abrir su
 ficha pausa la conducción hasta cerrarla.
+
+### Ciclo de día y noche
+
+`src/scene/dayNightCycle.ts` calcula en qué fase del día está el usuario
+(noche, amanecer, día o atardecer) y con qué progreso dentro de esa fase,
+para interpolar suavemente color de cielo/niebla, luz ambiente, color e
+intensidad del sol/luna y hasta la exposición del render. Pide la
+geolocalización del navegador (sin bloquear el arranque) para calcular la
+salida/puesta de sol reales de ese lugar con SunCalc; si se deniega, no está
+disponible o tarda más de 4 s, usa un horario fijo razonable (amanecer 6:00,
+atardecer 19:30) — no se envía la ubicación a ningún sitio, se usa solo en
+el propio navegador para este cálculo.
+
+### Minimapa
+
+`src/components/MiniMap.tsx` pinta en un `<canvas>` propio (con su propio
+intervalo de refresco, sin pasar por el estado de React) la posición del
+jeep y de los 4 dinosaurios sobre las 4 zonas del mapa. Los datos en vivo
+salen de `GameScene.getMinimapSnapshot()`; los tintes de zona para el fondo
+viven aparte, en `src/data/zoneMap.ts`, para no arrastrar three.js al bundle
+inicial de React.
 
 ### Rendimiento y modo de calidad reducida
 

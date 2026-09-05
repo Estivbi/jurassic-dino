@@ -4,14 +4,29 @@ import { DiscoveryAlbum } from './DiscoveryAlbum'
 import { ProximityPrompt } from './ProximityPrompt'
 import { DinoCard } from './DinoCard'
 import { TouchControls } from './TouchControls'
+import { MiniMap } from './MiniMap'
 
-type Props = Pick<GameApi, 'nearbyDino' | 'cardDino' | 'discovered' | 'openCard' | 'closeCard' | 'pressTouch'>
+type Props = Pick<
+  GameApi,
+  'nearbyDino' | 'cardDino' | 'discovered' | 'openCard' | 'closeCard' | 'pressTouch' | 'getMinimapSnapshot'
+>
 
-export function HUD({ nearbyDino, cardDino, discovered, openCard, closeCard, pressTouch }: Props) {
+export function HUD({
+  nearbyDino,
+  cardDino,
+  discovered,
+  openCard,
+  closeCard,
+  pressTouch,
+  getMinimapSnapshot,
+}: Props) {
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-      <div className="flex justify-center pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-6">
+      <div className="relative flex justify-center pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-6">
         <DiscoveryAlbum discovered={discovered} />
+        <div className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] sm:right-6 sm:top-6">
+          <MiniMap getSnapshot={getMinimapSnapshot} />
+        </div>
       </div>
 
       <div className="pointer-events-none flex flex-col items-center gap-3 px-3 pb-3 sm:px-6 sm:pb-6">
