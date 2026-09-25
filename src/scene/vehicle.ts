@@ -9,9 +9,9 @@ export interface VehicleInput {
 }
 
 // Física propia, ligera (sin motor de física): unidades del SI, 1 unidad = 1 m.
-const MAX_SPEED_FORWARD = 17
+const MAX_SPEED_FORWARD = 19
 const MAX_SPEED_REVERSE = 6
-const ENGINE_ACCEL = 8.5
+const ENGINE_ACCEL = 13
 const REVERSE_ACCEL = 5
 const BRAKE_DECEL = 15
 const ROLLING_RESISTANCE = 1.2
@@ -370,7 +370,9 @@ export class Vehicle {
     let accel = 0
     if (this.onGround) {
       if (input.forward) {
-        accel = vForward < -0.3 ? BRAKE_DECEL : ENGINE_ACCEL * Math.max(0, 1 - vForward / MAX_SPEED_FORWARD)
+        // Curva de par: empuja fuerte desde parado y solo se apaga cerca de la velocidad máxima.
+        const ratio = Math.max(0, vForward) / MAX_SPEED_FORWARD
+        accel = vForward < -0.3 ? BRAKE_DECEL : ENGINE_ACCEL * Math.max(0, 1 - ratio * ratio)
       } else if (input.back) {
         accel = vForward > 0.3 ? -BRAKE_DECEL : -REVERSE_ACCEL * Math.max(0, 1 + vForward / MAX_SPEED_REVERSE)
       } else if (Math.abs(vForward) > 0.01) {
