@@ -71,3 +71,10 @@ canvas {
     transform: translateY(0);
   }
 }
+
+/* En pantallas táctiles el aviso de ficha queda por encima de los botones de conducción. */
+@media (hover: none), (pointer: coarse) {
+  .above-touch-controls {
+    padding-bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 5rem);
+  }
+}

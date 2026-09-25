@@ -1,65 +1,50 @@
 import * as THREE from 'three'
+import type { ZoneId } from '@ride-types/ride'
 import { WORLD_BOUNDS } from './constants'
 
 export interface Zone {
-  id: string
+  id: ZoneId
   label: string
   /** Esquina del mapa que representa esta zona, en unidades de mundo. */
   corner: [number, number]
-  groundTint: THREE.Color
-  vegetationDensity: number
+  /** Densidad relativa de árboles (0 = ninguno). */
+  treeDensity: number
+  /** Densidad relativa de helechos, cícadas y sotobosque. */
+  understoryDensity: number
 }
 
 export const zones: Zone[] = [
-  {
-    id: 'jungla',
-    label: 'Jungla densa',
-    corner: [-WORLD_BOUNDS, -WORLD_BOUNDS],
-    groundTint: new THREE.Color('#1a4028'),
-    vegetationDensity: 1.4,
-  },
-  {
-    id: 'llanura',
-    label: 'La llanura del paddock',
-    corner: [WORLD_BOUNDS, -WORLD_BOUNDS],
-    groundTint: new THREE.Color('#3d6b45'),
-    vegetationDensity: 0.4,
-  },
-  {
-    id: 'rocosa',
-    label: 'Tierras rocosas',
-    corner: [-WORLD_BOUNDS, WORLD_BOUNDS],
-    groundTint: new THREE.Color('#665640'),
-    vegetationDensity: 0.25,
-  },
-  {
-    id: 'laguna',
-    label: 'La laguna',
-    corner: [WORLD_BOUNDS, WORLD_BOUNDS],
-    groundTint: new THREE.Color('#2a5850'),
-    vegetationDensity: 0.7,
-  },
+  { id: 'jungla', label: 'Bosque de coníferas', corner: [-WORLD_BOUNDS, -WORLD_BOUNDS], treeDensity: 1.5, understoryDensity: 1.4 },
+  { id: 'llanura', label: 'Llanura de helechos', corner: [WORLD_BOUNDS, -WORLD_BOUNDS], treeDensity: 0.28, understoryDensity: 1.1 },
+  { id: 'rocosa', label: 'Cañones rocosos', corner: [-WORLD_BOUNDS, WORLD_BOUNDS], treeDensity: 0.22, understoryDensity: 0.35 },
+  { id: 'laguna', label: 'La laguna', corner: [WORLD_BOUNDS, WORLD_BOUNDS], treeDensity: 0.7, understoryDensity: 1.0 },
 ]
 
-function blendFactors(x: number, z: number): [number, number] {
-  const t = THREE.MathUtils.clamp((x / WORLD_BOUNDS + 1) / 2, 0, 1)
-  const s = THREE.MathUtils.clamp((z / WORLD_BOUNDS + 1) / 2, 0, 1)
-  return [t, s]
+export type ZoneWeights = Record<ZoneId, number>
+
+/** Pesos bilineales (suman 1) de cada zona en un punto del mapa. */
+export function zoneWeights(x: number, z: number): ZoneWeights {
+  const t = THREE.MathUtils.smoothstep((x / WORLD_BOUNDS + 1) / 2, 0.2, 0.8)
+  const s = THREE.MathUtils.smoothstep((z / WORLD_BOUNDS + 1) / 2, 0.2, 0.8)
+  return {
+    jungla: (1 - t) * (1 - s),
+    llanura: t * (1 - s),
+    rocosa: (1 - t) * s,
+    laguna: t * s,
+  }
 }
 
-/** Interpola bilinealmente una propiedad de color de las 4 zonas según la posición en el mundo. */
-export function blendZoneColor(x: number, z: number, pick: (zone: Zone) => THREE.Color, out = new THREE.Color()): THREE.Color {
-  const [t, s] = blendFactors(x, z)
-  const [jungla, llanura, rocosa, laguna] = zones
-  const top = pick(jungla).clone().lerp(pick(llanura), t)
-  const bottom = pick(rocosa).clone().lerp(pick(laguna), t)
-  return out.copy(top.lerp(bottom, s))
+export function blendZoneValue(x: number, z: number, pick: (zone: Zone) => number): number {
+  const w = zoneWeights(x, z)
+  return zones.reduce((sum, zone) => sum + pick(zone) * w[zone.id], 0)
 }
 
-export function blendVegetationDensity(x: number, z: number): number {
-  const [t, s] = blendFactors(x, z)
-  const [jungla, llanura, rocosa, laguna] = zones
-  const top = THREE.MathUtils.lerp(jungla.vegetationDensity, llanura.vegetationDensity, t)
-  const bottom = THREE.MathUtils.lerp(rocosa.vegetationDensity, laguna.vegetationDensity, t)
-  return THREE.MathUtils.lerp(top, bottom, s)
+export function dominantZone(x: number, z: number): Zone {
+  const w = zoneWeights(x, z)
+  return zones.reduce((best, zone) => (w[zone.id] > w[best.id] ? zone : best), zones[0])
+}
+
+/** Centro "natural" de cada zona (a medio camino entre el centro del mapa y su esquina). */
+export function zoneHome(zone: Zone): THREE.Vector2 {
+  return new THREE.Vector2(zone.corner[0] * 0.55, zone.corner[1] * 0.55)
 }

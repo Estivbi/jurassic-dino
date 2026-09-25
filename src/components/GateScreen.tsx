@@ -1,8 +1,9 @@
 interface Props {
   onStart: () => void
+  onShowCredits: () => void
 }
 
-export function GateScreen({ onStart }: Props) {
+export function GateScreen({ onStart, onShowCredits }: Props) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-black/70 via-black/50 to-black/80 px-6 text-center">
       <div className="flex items-end gap-0">
@@ -23,8 +24,9 @@ export function GateScreen({ onStart }: Props) {
       </div>
 
       <p className="mt-6 max-w-sm text-sm text-[var(--cream)]/75 sm:max-w-md sm:text-base">
-        Conduce libremente por el parque entre la niebla nocturna. Cuatro dinosaurios reales patrullan
-        su zona — acércate para ver su ficha y algún mito que nos ha durado demasiadas películas.
+        Conduce libremente por un parque con flora del Mesozoico, un lago y nueve especies reales. El cielo es
+        el de verdad: el Sol, la Luna con su fase y las estrellas de tu ubicación y tu hora. Acércate a cada
+        animal para ver su ficha, desmontar un mito y responder su pregunta.
       </p>
       <p className="mt-3 max-w-sm text-xs text-[var(--cream)]/55 sm:max-w-md sm:text-sm">
         Flechas / WASD para conducir (o los botones en pantalla en móvil) · E para ver la ficha cuando
@@ -37,6 +39,14 @@ export function GateScreen({ onStart }: Props) {
         className="font-display mt-8 rounded-full bg-gradient-to-b from-[var(--amber-400)] to-[var(--amber-600)] px-8 py-3.5 text-base tracking-wide text-[#1a1206] shadow-2xl transition hover:brightness-110 active:scale-95 sm:text-lg"
       >
         Arrancar el jeep →
+      </button>
+
+      <button
+        type="button"
+        onClick={onShowCredits}
+        className="mt-4 text-xs text-[var(--cream)]/60 underline decoration-[var(--cream)]/30 underline-offset-4"
+      >
+        Créditos y licencias
       </button>
     </div>
   )
