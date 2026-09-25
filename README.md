@@ -24,6 +24,11 @@ estático.
   y horneados a glTF, más helechos, helechos arborescentes y cícadas diseñados
   de forma procedural (en el Jurásico no había praderas de hierba). Todo se
   mueve con el viento.
+- **Física del jeep** propia y ligera (sin motor de física): inercia, agarre lateral
+  con algo de derrape en curvas rápidas, dirección progresiva, pendientes que frenan
+  o empujan, gravedad (en una cresta rápida el jeep se despega), rebote al chocar con
+  troncos, rocas o dinosaurios, y suspensión con muelles que hunde o inclina la
+  carrocería al acelerar, frenar y girar.
 - **Dinosaurios**: modelos 3D reales con licencia CC BY, a su tamaño real y en
   manadas. Los que traen esqueleto animado usan su animación; el resto camina
   con un andar procedural en el vertex shader (patas, cola y cuello). Esquivan
@@ -83,7 +88,7 @@ src/
     water.ts        # lago (Water de three.js o material físico en móvil)
     vegetation.ts   # árboles instanciados, flora procedural, rocas y viento
     dinosaurs.ts    # carga de modelos, manadas, IA, andar procedural
-    vehicle.ts      # jeep modelado por piezas y su física
+    vehicle.ts      # jeep modelado por piezas y su física (muelles, agarre, choques)
     zones.ts        # las 4 zonas del parque
     quality.ts      # presets de calidad por dispositivo
   components/       # HUD en React (panel del cielo, fichas, quiz, minimapa...)
