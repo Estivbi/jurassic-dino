@@ -1,26 +1,56 @@
 # Parque Jurásico 3D 🦖
 
-Una web-regalo interactiva: conduces libremente un jeep por un parque con
-ciclo real de día/noche, con 4 dinosaurios reales patrullando su zona (cada
-uno con datos reales y un mito desmontado). Sin backend, sin dependencias de
-pago — pensada para desplegarse gratis en Vercel como sitio estático.
+Una web-regalo interactiva y educativa: conduces libremente un jeep de safari
+por un parque con flora del Mesozoico, un lago y nueve especies reales (ocho
+dinosaurios y un reptil marino). El cielo es el de verdad: el Sol, la Luna con
+su fase y las estrellas se calculan para la ubicación y la hora del usuario.
+Sin backend ni dependencias de pago: se despliega gratis en Vercel como sitio
+estático.
+
+## Qué hay en el parque
+
+- **Cielo físico**: dispersión atmosférica con nubes (`Sky` de three.js), Sol en
+  su posición real, Luna con su fase real (sale sola: se ilumina el hemisferio
+  que mira al Sol), ~2.800 estrellas reales hasta magnitud 5,5 y las 88
+  constelaciones, que giran con la hora sidérea. El propio cielo genera el mapa
+  de entorno con el que se iluminan los materiales PBR.
+- **Viajar en el tiempo**: desde el panel del cielo se puede adelantar o
+  retrasar la hora ±12 h para ver el atardecer, la noche o el amanecer.
+- **Terreno** con mezcla de texturas (musgo, tierra, roca sedimentaria con
+  estratos, arena y barro en la orilla), cordillera perimetral y un **lago**
+  excavado en el terreno con agua reflectante (en calidad alta refleja cielo,
+  árboles y dinosaurios).
+- **Flora mesozoica**: coníferas y árboles de hoja ancha generados con EZ-Tree
+  y horneados a glTF, más helechos, helechos arborescentes y cícadas diseñados
+  de forma procedural (en el Jurásico no había praderas de hierba). Todo se
+  mueve con el viento.
+- **Dinosaurios**: modelos 3D reales con licencia CC BY, a su tamaño real y en
+  manadas. Los que traen esqueleto animado usan su animación; el resto camina
+  con un andar procedural en el vertex shader (patas, cola y cuello). Esquivan
+  troncos, rocas y a los demás animales.
+- **Capa educativa**: ficha de cada especie con datos contrastados, un mito
+  desmontado y una pregunta tipo quiz (los aciertos suman estrellas en el
+  álbum), carteles de zona sobre flora y fósiles, y curiosidades del cielo.
+- **Créditos** de todos los recursos de terceros, accesibles desde la entrada
+  y desde el juego.
 
 ## Stack
 
 - [Vite](https://vite.dev) + React 19 + TypeScript
-- [three.js](https://threejs.org) para la escena 3D (terreno, mundo abierto
-  por zonas, niebla, luces, vehículo y dinosaurios low-poly)
-- [Framer Motion](https://motion.dev) para las transiciones del HUD (React)
-- [SunCalc](https://github.com/mourner/suncalc) para calcular amanecer/atardecer reales
-- Tailwind CSS v4 solo para utilidades de layout del HUD; el resto de la
-  estética vive en `src/index.css`
+- [three.js](https://threejs.org) para la escena 3D
+- [Framer Motion](https://motion.dev) para las transiciones del HUD
+- [SunCalc](https://github.com/mourner/suncalc) para la posición del Sol y de la Luna
+- Tailwind CSS v4 para el layout del HUD; la estética vive en `src/index.css`
 
 ## Controles
 
 - **Teclado**: WASD o flechas para conducir.
-- **Móvil**: botones en pantalla (aparecen solo en dispositivos táctiles).
-- **E** o el botón en pantalla: ver la ficha del dinosaurio más cercano
-  cuando aparece el aviso. **Esc** o la ✕ para cerrarla.
+- **Móvil**: botones en pantalla (solo en dispositivos táctiles).
+- **E** o el botón en pantalla: ver la ficha del animal más cercano cuando
+  aparece el aviso. **Esc** o la ✕ para cerrarla.
+- **Panel del cielo** (arriba a la izquierda): hora, fase lunar, viajar en el
+  tiempo y mostrar constelaciones.
+- `?calidad=baja` / `?calidad=alta` en la URL fuerza el nivel de calidad.
 
 ## Arranque en local
 
@@ -44,111 +74,78 @@ Abre `http://localhost:5173`.
 
 ```
 src/
-  scene/        # three.js: terreno, zonas/biomas, niebla, luces, vehículo,
-                # dinosaurios low-poly con IA de deambulación, vegetación,
-                # input (teclado), calidad por dispositivo
-  components/   # HUD en React: valla de entrada, controles táctiles, aviso
-                # de proximidad, tarjeta de dino, álbum de descubiertos
-  hooks/        # useGame: estado del juego (react <-> three.js)
-  data/         # dinos.ts — fichas de los 4 dinosaurios
-  types/        # tipos compartidos entre la escena y el HUD
+  scene/
+    GameScene.ts    # orquesta todo: render, cámara, colisiones, bucle
+    celestial.ts    # astronomía: Sol, Luna, fase y rotación de la esfera celeste
+    sky.ts          # cielo físico, estrellas, constelaciones, Luna y mapa de entorno
+    lighting.ts     # luces y niebla a partir de la altura real del Sol y la Luna
+    terrain.ts      # relieve, cuenca del lago y material con mezcla de texturas
+    water.ts        # lago (Water de three.js o material físico en móvil)
+    vegetation.ts   # árboles instanciados, flora procedural, rocas y viento
+    dinosaurs.ts    # carga de modelos, manadas, IA, andar procedural
+    vehicle.ts      # jeep modelado por piezas y su física
+    zones.ts        # las 4 zonas del parque
+    quality.ts      # presets de calidad por dispositivo
+  components/       # HUD en React (panel del cielo, fichas, quiz, minimapa...)
+  hooks/            # useGame: puente React <-> three.js
+  data/             # fichas de especies, textos educativos y créditos
+  assets/           # modelos glTF, texturas WebP y catálogo de estrellas
 ```
 
-### Alias de importación
+`@scene`, `@components`, `@data`, `@assets`, `@hooks` y `@ride-types` son
+alias de sus carpetas en `src/` (en `vite.config.ts` y `tsconfig.app.json`).
 
-`@scene`, `@components`, `@data`, `@assets`, `@hooks`, `@ride-types` apuntan a
-sus carpetas respectivas dentro de `src/` (configurados en `vite.config.ts` y
-`tsconfig.app.json`).
+### Cómo funciona
 
-### Cómo funciona el juego
+`useGame` guarda el input (teclado + táctil) en una ref que lee cada frame
+`GameScene`, que no conoce React. La escena de three.js se carga con un
+`import()` dinámico, así que three.js no entra en el bundle inicial.
 
-`useGame` (en `src/hooks/useGame.ts`) mantiene el input (teclado + táctil) en
-una ref mutable que lee cada frame la clase `GameScene`
-(`src/scene/GameScene.ts`), la cual no conoce nada de React: solo actualiza
-la física del vehículo (`src/scene/vehicle.ts`), la cámara en tercera
-persona y la IA de los dinosaurios (`src/scene/dinosaurs.ts`), y expone el id
-del dinosaurio más cercano. El mundo está dividido en 4 zonas/biomas
-(`src/scene/zones.ts`) cuyo color de niebla, tono de terreno y densidad de
-vegetación se interpolan suavemente según la posición del jeep — de ahí que
-el paisaje cambie según por dónde conduzcas. Acercarte a un dinosaurio (radio
-definido en `GameScene`) dispara el aviso de proximidad en el HUD; abrir su
-ficha pausa la conducción hasta cerrarla.
+El reloj astronómico (`celestial.ts`) usa la hora del dispositivo y la
+geolocalización del navegador si se concede (si no, calcula el cielo para
+Madrid). La ubicación nunca sale del navegador. Con la altura del Sol se
+interpolan color e intensidad de la luz principal (que de noche pasa a ser la
+luz de la Luna, más intensa cuanto más llena está), la exposición, la niebla y
+los faros del jeep.
 
-### Ciclo de día y noche
+### Rendimiento
 
-`src/scene/dayNightCycle.ts` calcula en qué fase del día está el usuario
-(noche, amanecer, día o atardecer) y con qué progreso dentro de esa fase,
-para interpolar suavemente color de cielo/niebla, luz ambiente, color e
-intensidad del sol/luna y hasta la exposición del render. Pide la
-geolocalización del navegador (sin bloquear el arranque) para calcular la
-salida/puesta de sol reales de ese lugar con SunCalc; si se deniega, no está
-disponible o tarda más de 4 s, usa un horario fijo razonable (amanecer 6:00,
-atardecer 19:30) — no se envía la ubicación a ningún sitio, se usa solo en
-el propio navegador para este cálculo.
+- `quality.ts` detecta móviles o equipos con poca memoria y reduce resolución,
+  vegetación, sombras y el tipo de agua.
+- La vegetación usa `InstancedMesh` repartidos en trozos de mapa para que la
+  cámara y la sombra descarten los que no ven; los detalles pequeños no se
+  dibujan en el reflejo del lago.
+- Los modelos van comprimidos con Meshopt y texturas WebP de 1024 px o menos.
 
-### Minimapa
-
-`src/components/MiniMap.tsx` pinta en un `<canvas>` propio (con su propio
-intervalo de refresco, sin pasar por el estado de React) la posición del
-jeep y de los 4 dinosaurios sobre las 4 zonas del mapa. Los datos en vivo
-salen de `GameScene.getMinimapSnapshot()`; los tintes de zona para el fondo
-viven aparte, en `src/data/zoneMap.ts`, para no arrastrar three.js al bundle
-inicial de React.
-
-### Rendimiento y modo de calidad reducida
-
-`src/scene/quality.ts` detecta dispositivos táctiles de pantalla pequeña o con
-poca memoria y aplica un preset "low": menos niebla de alcance, sin sombras,
-menos vegetación instanciada y un límite de `devicePixelRatio` más bajo. La
-vegetación se pinta con `InstancedMesh` y los dinosaurios comparten
-geometrías y materiales cacheados para evitar asignar memoria en cada frame.
-
-### Assets
-
-El T-Rex y el Brachiosaurio usan ya modelos glTF reales (piel/escamas
-texturizadas con PBR) en `src/assets/models/*.opt.glb`, cargados de forma
-asíncrona en `src/scene/dinosaurs.ts` vía `GLTFLoader`. Mientras el modelo
-carga (o si `MODEL_CONFIG` no tiene entrada para una especie) se ve la
-primitiva de recambio — así el Triceratops, el Velociraptor y el jeep siguen
-con primitivas hasta que se sustituyan por assets reales igual de buenos.
-
-**Optimizar un `.glb` nuevo antes de añadirlo** (los modelos de bancos como
-Sketchfab suelen venir con texturas de 4K/8K que revientan la VRAM en
-móvil):
+### Añadir un modelo nuevo
 
 ```bash
-npx @gltf-transform/cli optimize entrada.glb salida.opt.glb --texture-size 1024 --compress meshopt
+npx @gltf-transform/cli optimize entrada.glb salida.glb \
+  --texture-size 1024 --texture-compress webp --compress meshopt
 ```
 
-Si el resultado usa compresión Meshopt (como aquí), el loader necesita el
-decodificador — ya está configurado en `dinosaurs.ts`:
+Después, añade la especie a `SPECIES` en `src/scene/dinosaurs.ts` (longitud
+real en metros y hacia dónde mira el modelo: se escala y centra solo), su
+ficha en `src/data/dinos.ts` y su atribución en `src/data/credits.ts`.
+Comprueba siempre la licencia en los metadatos del GLB y evita modelos
+extraídos de videojuegos aunque digan ser CC BY.
 
-```ts
-gltfLoader.setMeshoptDecoder(MeshoptDecoder)
-```
+## Créditos
 
-Para añadir un modelo a una nueva especie: importa el `.glb` con
-`import url from '@assets/models/xxx.opt.glb?url'` y añade una entrada a
-`MODEL_CONFIG` en `src/scene/dinosaurs.ts` con `scale`/`rotationY` ajustados
-a ojo (compara con el jeep en una captura).
-
-Candidatos pendientes de revisar visualmente antes de integrar (no vale
-fiarse del título/descripción del listado — hay que verlos en 3D primero):
-generadores texto→3D como [Meshy](https://www.meshy.ai) o
-[Tripo3D](https://www.tripo3d.ai), o bancos de pago (Sketchfab Store,
-TurboSquid) para más consistencia de calidad que lo gratuito.
+Todos los recursos de terceros están listados, con autor, licencia y enlace, en
+`src/data/credits.ts` y en la pantalla de créditos del juego. Los modelos de
+dinosaurios son CC BY 4.0 (Marcel Schanz, MrTomas, wojciechmiedziocha,
+IagoMendez, seirogan, kenchoo, Saurus, dinoguy263allo y ricksticky); el cielo y
+el agua vienen de three.js (MIT); los árboles, de EZ-Tree (MIT); las estrellas,
+de d3-celestial (BSD-3).
 
 ## Despliegue en Vercel
 
-El proyecto es un build estático de Vite, así que no requiere configuración
-adicional:
+Es un build estático de Vite, no requiere configuración adicional:
 
 1. Importa el repositorio en [Vercel](https://vercel.com/new).
-2. Vercel detecta automáticamente el framework "Vite" — build command
-   `npm run build`, output directory `dist`.
-3. Despliega. No hay variables de entorno ni backend que configurar.
-
-Para probar el build de producción en local antes de desplegar:
+2. Vercel detecta el framework "Vite": build `npm run build`, salida `dist`.
+3. Despliega. No hay variables de entorno ni backend.
 
 ```bash
 npm run build

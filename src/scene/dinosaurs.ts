@@ -55,6 +55,9 @@ export interface DinoInstance {
   index: number
   group: THREE.Group
   proximity: number
+  /** Radio aproximado del cuerpo en el plano XZ (para que el jeep no lo atraviese). */
+  radius: number
+  swims: boolean
   update: (dt: number, elapsed: number) => void
 }
 
@@ -340,8 +343,18 @@ export interface DinosaurHerds {
   instances: DinoInstance[]
 }
 
-export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale: number): DinosaurHerds {
+/** Empuja un punto fuera de los obstáculos fijos (troncos, rocas); lo aporta la escena. */
+export type ObstacleResolver = (x: number, z: number, radius: number) => { x: number; z: number; blocked: boolean }
+
+interface BodyState {
+  position: THREE.Vector2
+  radius: number
+}
+
+export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale: number, resolveObstacles: ObstacleResolver): DinosaurHerds {
   const instances: DinoInstance[] = []
+  const bodies: BodyState[] = []
+  const tmpPush = new THREE.Vector2()
 
   dinos.forEach((dino, speciesIndex) => {
     const config = SPECIES[dino.id]
@@ -368,6 +381,8 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale:
         position.x += i * 4
       }
       const target = pickTarget(config, home, rand, new THREE.Vector2())
+      const body: BodyState = { position, radius: config.length * 0.28 }
+      if (config.habitat !== 'water') bodies.push(body)
       const speed = config.speed[0] + rand() * (config.speed[1] - config.speed[0])
       let idleTimer = rand() * 4
       let stride = 0
@@ -393,6 +408,8 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale:
         index: i,
         group,
         proximity: config.proximity,
+        radius: config.length * 0.22,
+        swims: config.habitat === 'water',
         update: (dt, elapsed) => {
           let moving = false
           if (config.habitat === 'water') {
@@ -430,7 +447,22 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale:
                 position.set(nextX, nextZ)
                 moving = step > 0.0001
               }
+              // Los gigantes apartan la vegetación; el resto esquiva troncos y rocas.
+              if (config.length < 15) {
+                const resolved = resolveObstacles(position.x, position.y, body.radius * 0.6)
+                position.set(resolved.x, resolved.z)
+                if (resolved.blocked && rand() < 0.02) pickTarget(config, home, rand, target)
+              }
             }
+          }
+
+          // Ningún animal atraviesa a otro: el que se mueve se aparta.
+          for (const other of bodies) {
+            if (other === body) continue
+            tmpPush.copy(position).sub(other.position)
+            const minDist = (body.radius + other.radius) * 0.8
+            const dist = tmpPush.length()
+            if (dist < minDist && dist > 0.0001) position.addScaledVector(tmpPush, (minDist - dist) / dist)
           }
 
           stride = THREE.MathUtils.lerp(stride, moving ? 1 : 0, Math.min(1, dt * 3))

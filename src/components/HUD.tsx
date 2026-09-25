@@ -59,7 +59,7 @@ export function HUD(props: Props) {
         {!cardDino && <ZoneBanner zoneId={props.zoneId} />}
       </div>
 
-      <div className="pointer-events-none flex flex-col items-center gap-3 px-3 pb-3 sm:px-6 sm:pb-6">
+      <div className={`pointer-events-none flex flex-col items-center gap-3 px-3 sm:px-6 sm:pb-6 ${cardDino ? 'pb-3' : 'above-touch-controls pb-3'}`}>
         <AnimatePresence mode="wait">
           {cardDino ? (
             <motion.div

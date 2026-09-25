@@ -96,6 +96,8 @@ export class GameScene {
   private tmpSunDir = new THREE.Vector3()
   private nearbyObstacles: Obstacle[] = []
   private debugView: { from: THREE.Vector3; to: THREE.Vector3 } | null = null
+  private chaseDistance = 7
+  private chaseHeight = 3.4
 
   constructor(canvas: HTMLCanvasElement, dinos: DinoData[], qualityLevel: QualityLevel) {
     this.quality = getQualitySettings(qualityLevel)
@@ -124,7 +126,9 @@ export class GameScene {
     this.scene.add(this.lake.mesh)
     this.vegetation = buildVegetation(this.scene, this.quality)
     this.obstacleGrid = new ObstacleGrid(this.vegetation.obstacles)
-    this.dinoInstances = buildDinosaurs(this.scene, dinos, this.quality.herdScale).instances
+    this.dinoInstances = buildDinosaurs(this.scene, dinos, this.quality.herdScale, (x, z, radius) =>
+      this.resolveObstacles(x, z, radius),
+    ).instances
     for (const dino of dinos) this.dinoColors.set(dino.id, dino.accent)
 
     const startY = heightAtPosition(0, 6)
@@ -143,11 +147,30 @@ export class GameScene {
   private resolveVehicle(x: number, z: number, prevX: number, prevZ: number): { x: number; z: number; blocked: boolean } {
     // El jeep no se mete en el lago: si el agua cubriría las ruedas, se queda en la orilla.
     if (isUnderwater(x, z, 0.35)) return { x: prevX, z: prevZ, blocked: true }
+    const resolved = this.resolveObstacles(x, z, JEEP_RADIUS)
+    // Tampoco se atraviesa a los dinosaurios.
+    for (const dino of this.dinoInstances) {
+      if (dino.swims) continue
+      const dx = resolved.x - dino.group.position.x
+      const dz = resolved.z - dino.group.position.z
+      const minDist = dino.radius + JEEP_RADIUS
+      const distSq = dx * dx + dz * dz
+      if (distSq < minDist * minDist) {
+        const dist = Math.sqrt(distSq) || 0.001
+        resolved.x = dino.group.position.x + (dx / dist) * minDist
+        resolved.z = dino.group.position.z + (dz / dist) * minDist
+        resolved.blocked = true
+      }
+    }
+    return resolved
+  }
+
+  private resolveObstacles(x: number, z: number, radius: number): { x: number; z: number; blocked: boolean } {
     let blocked = false
     for (const o of this.obstacleGrid.near(x, z, this.nearbyObstacles)) {
       const dx = x - o.x
       const dz = z - o.z
-      const minDist = o.r + JEEP_RADIUS
+      const minDist = o.r + radius
       const distSq = dx * dx + dz * dz
       if (distSq < minDist * minDist) {
         const dist = Math.sqrt(distSq) || 0.001
@@ -161,8 +184,8 @@ export class GameScene {
 
   private placeCameraBehindVehicle(): void {
     this.tmpForward.copy(this.vehicle.forwardVector())
-    this.camera.position.copy(this.vehicle.position).addScaledVector(this.tmpForward, -7)
-    this.camera.position.y += 3.4
+    this.camera.position.copy(this.vehicle.position).addScaledVector(this.tmpForward, -this.chaseDistance)
+    this.camera.position.y += this.chaseHeight
     this.camera.lookAt(this.vehicle.position)
   }
 
@@ -173,6 +196,10 @@ export class GameScene {
     const height = parent?.clientHeight ?? window.innerHeight
     this.renderer.setSize(width, height, false)
     this.camera.aspect = width / Math.max(height, 1)
+    // En vertical (móvil) se abre el campo de visión y la cámara se aleja un poco.
+    this.camera.fov = this.camera.aspect < 1 ? 72 : 60
+    this.chaseDistance = this.camera.aspect < 1 ? 8.5 : 7
+    this.chaseHeight = this.camera.aspect < 1 ? 4 : 3.4
     this.camera.updateProjectionMatrix()
   }
 
@@ -262,8 +289,8 @@ export class GameScene {
 
     // Cámara de persecución que nunca se hunde en el terreno.
     this.tmpForward.copy(this.vehicle.forwardVector())
-    this.tmpDesiredCam.copy(this.vehicle.position).addScaledVector(this.tmpForward, -7)
-    this.tmpDesiredCam.y += 3.4
+    this.tmpDesiredCam.copy(this.vehicle.position).addScaledVector(this.tmpForward, -this.chaseDistance)
+    this.tmpDesiredCam.y += this.chaseHeight
     const minCamY = heightAtPosition(this.tmpDesiredCam.x, this.tmpDesiredCam.z) + 1.2
     this.tmpDesiredCam.y = Math.max(this.tmpDesiredCam.y, minCamY)
     this.camera.position.lerp(this.tmpDesiredCam, Math.min(1, dt * 5))
