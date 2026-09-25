@@ -1,302 +1,476 @@
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js'
 import type { DinoData } from '@ride-types/ride'
-import { heightAtPosition } from './terrain'
-import { zones } from './zones'
-import trexUrl from '@assets/models/trex.opt.glb?url'
-import brachiosaurusUrl from '@assets/models/brachiosaurus.opt.glb?url'
+import { heightAtPosition, isUnderwater } from './terrain'
+import { zoneHome, zones } from './zones'
+import { LAKE, WATER_LEVEL, WORLD_BOUNDS } from './constants'
+import { bakedGeometry, gltfLoader, seededRandom } from './modelUtils'
+import tRexUrl from '@assets/models/t-rex.glb?url'
+import velociraptorUrl from '@assets/models/velociraptor.glb?url'
+import triceratopsUrl from '@assets/models/triceratops.glb?url'
+import brachiosaurusUrl from '@assets/models/brachiosaurus.glb?url'
+import spinosaurusUrl from '@assets/models/spinosaurus.glb?url'
+import baryonyxUrl from '@assets/models/baryonyx.glb?url'
+import argentinosaurusUrl from '@assets/models/argentinosaurus.glb?url'
+import megalosaurusUrl from '@assets/models/megalosaurus.glb?url'
+import pistosaurusUrl from '@assets/models/pistosaurus.glb?url'
 
-interface ModelConfig {
+type Habitat = 'land' | 'shore' | 'water'
+type Gait = 'biped' | 'quad'
+
+interface SpeciesConfig {
   url: string
-  scale: number
-  rotationY: number
+  /** Longitud del animal en metros: el modelo se escala para medir esto de hocico a cola. */
+  length: number
+  /** +1 si el modelo original mira a +Z, -1 si mira a -Z. */
+  facing: 1 | -1
+  /** Si el GLB trae animación esquelética, se reproduce con un AnimationMixer. */
+  skeletal?: { timeScale: number }
+  /** Si no la trae, se anima con un andar procedural en el vertex shader. */
+  gait?: Gait
+  habitat: Habitat
+  herd: number
+  speed: [number, number]
+  /** Proporción del tiempo que pasa parado (pastando, oteando...). */
+  idleChance: number
+  wanderRadius: number
+  /** Radio a partir del cual aparece el aviso de ficha (los gigantes se ven de lejos). */
+  proximity: number
 }
 
-/** Modelos glTF reales para las especies que ya tienen un asset descargado; el resto sigue con primitivas. */
-const MODEL_CONFIG: Partial<Record<string, ModelConfig>> = {
-  't-rex': { url: trexUrl, scale: 1, rotationY: 0 },
-  brachiosaurus: { url: brachiosaurusUrl, scale: 1, rotationY: 0 },
+const SPECIES: Record<string, SpeciesConfig> = {
+  velociraptor: { url: velociraptorUrl, length: 3.6, facing: -1, gait: 'biped', habitat: 'land', herd: 3, speed: [2.6, 4.2], idleChance: 0.35, wanderRadius: 26, proximity: 13 },
+  megalosaurus: { url: megalosaurusUrl, length: 7, facing: 1, gait: 'biped', habitat: 'land', herd: 1, speed: [1.4, 2.2], idleChance: 0.4, wanderRadius: 26, proximity: 15 },
+  triceratops: { url: triceratopsUrl, length: 8.5, facing: 1, gait: 'quad', habitat: 'land', herd: 3, speed: [1.0, 1.6], idleChance: 0.6, wanderRadius: 24, proximity: 16 },
+  argentinosaurus: { url: argentinosaurusUrl, length: 33, facing: 1, gait: 'quad', habitat: 'land', herd: 1, speed: [0.9, 1.3], idleChance: 0.5, wanderRadius: 22, proximity: 30 },
+  't-rex': { url: tRexUrl, length: 12.3, facing: 1, gait: 'biped', habitat: 'land', herd: 1, speed: [1.5, 2.4], idleChance: 0.35, wanderRadius: 26, proximity: 18 },
+  brachiosaurus: { url: brachiosaurusUrl, length: 21, facing: 1, gait: 'quad', habitat: 'shore', herd: 2, speed: [0.8, 1.2], idleChance: 0.55, wanderRadius: 18, proximity: 24 },
+  spinosaurus: { url: spinosaurusUrl, length: 14, facing: 1, skeletal: { timeScale: 1 }, habitat: 'shore', herd: 1, speed: [0.5, 0.8], idleChance: 0.85, wanderRadius: 12, proximity: 18 },
+  baryonyx: { url: baryonyxUrl, length: 8.5, facing: 1, skeletal: { timeScale: 1 }, habitat: 'shore', herd: 1, speed: [1.1, 1.4], idleChance: 0.2, wanderRadius: 16, proximity: 14 },
+  pistosaurus: { url: pistosaurusUrl, length: 3.2, facing: 1, skeletal: { timeScale: 1 }, habitat: 'water', herd: 2, speed: [1.6, 2.2], idleChance: 0, wanderRadius: 0, proximity: 24 },
 }
-
-const gltfLoader = new GLTFLoader()
-gltfLoader.setMeshoptDecoder(MeshoptDecoder)
-
-/** Geometrías unitarias reutilizadas por todos los dinosaurios: solo cambia el `scale` de cada mesh. */
-const GEO = {
-  box: new THREE.BoxGeometry(1, 1, 1),
-  cylinder: new THREE.CylinderGeometry(1, 1, 1, 8),
-  cone: new THREE.ConeGeometry(1, 1, 8),
-  sphere: new THREE.IcosahedronGeometry(1, 1),
-}
-
-const materialCache = new Map<string, THREE.MeshStandardMaterial>()
-function materialFor(color: string): THREE.MeshStandardMaterial {
-  let mat = materialCache.get(color)
-  if (!mat) {
-    mat = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05 })
-    materialCache.set(color, mat)
-  }
-  return mat
-}
-
-function block(
-  parent: THREE.Object3D,
-  color: string,
-  size: [number, number, number],
-  position: [number, number, number],
-  rotation: [number, number, number] = [0, 0, 0],
-  geo: THREE.BufferGeometry = GEO.box,
-): THREE.Mesh {
-  const mesh = new THREE.Mesh(geo, materialFor(color))
-  mesh.scale.set(...size)
-  mesh.position.set(...position)
-  mesh.rotation.set(...rotation)
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  parent.add(mesh)
-  return mesh
-}
-
-interface DinoRig {
-  group: THREE.Group
-  animateLimbs: (t: number) => void
-}
-
-function buildVelociraptor(color: string): DinoRig {
-  const group = new THREE.Group()
-  const dark = new THREE.Color(color).multiplyScalar(0.7).getStyle()
-
-  block(group, color, [0.55, 0.6, 1.1], [0, 0.95, 0]) // torso
-  const tail = block(group, color, [0.25, 0.25, 1.6], [0, 0.9, -1.2], [0, 0, 0], GEO.cone)
-  tail.rotation.x = Math.PI / 2
-  const head = block(group, dark, [0.32, 0.32, 0.55], [0, 1.35, 0.75])
-  block(group, dark, [0.16, 0.16, 0.4], [0, 1.28, 1.15]) // hocico
-
-  const legL = block(group, color, [0.18, 0.9, 0.18], [-0.22, 0.45, 0.05], [0, 0, 0], GEO.cylinder)
-  const legR = block(group, color, [0.18, 0.9, 0.18], [0.22, 0.45, 0.05], [0, 0, 0], GEO.cylinder)
-  block(group, color, [0.15, 0.5, 0.15], [-0.16, 0.7, 0.55], [0.5, 0, 0], GEO.cylinder)
-  block(group, color, [0.15, 0.5, 0.15], [0.16, 0.7, 0.55], [0.5, 0, 0], GEO.cylinder)
-
-  return {
-    group,
-    animateLimbs: (t) => {
-      tail.rotation.y = Math.sin(t * 2.4) * 0.35
-      head.rotation.y = Math.sin(t * 1.6) * 0.25
-      legL.rotation.x = Math.sin(t * 6) * 0.5
-      legR.rotation.x = Math.sin(t * 6 + Math.PI) * 0.5
-    },
-  }
-}
-
-function buildTriceratops(color: string): DinoRig {
-  const group = new THREE.Group()
-  const dark = new THREE.Color(color).multiplyScalar(0.75).getStyle()
-
-  block(group, color, [1.1, 1.1, 2.2], [0, 1.1, 0]) // torso
-  const head = new THREE.Group()
-  head.position.set(0, 1.1, 1.5)
-  group.add(head)
-  block(head, dark, [0.9, 0.15, 0.9], [0, 0.55, -0.2], [0.3, 0, 0]) // gola
-  block(head, dark, [0.55, 0.55, 0.9], [0, 0, 0.2]) // cráneo
-  block(head, '#e8dcc0', [0.16, 0.5, 0.16], [-0.25, 0.35, 0.55], [-0.3, 0, 0.1], GEO.cone)
-  block(head, '#e8dcc0', [0.16, 0.5, 0.16], [0.25, 0.35, 0.55], [-0.3, 0, -0.1], GEO.cone)
-  block(head, '#e8dcc0', [0.14, 0.3, 0.14], [0, 0.05, 0.85], [-0.9, 0, 0], GEO.cone)
-
-  const legs: THREE.Mesh[] = []
-  const legPositions: [number, number, number][] = [
-    [-0.55, 0.55, 0.75],
-    [0.55, 0.55, 0.75],
-    [-0.55, 0.55, -0.75],
-    [0.55, 0.55, -0.75],
-  ]
-  for (const p of legPositions) legs.push(block(group, color, [0.3, 1.1, 0.3], p, [0, 0, 0], GEO.cylinder))
-  const tail = block(group, color, [0.35, 0.35, 1.1], [0, 1.0, -1.6], [Math.PI / 2, 0, 0], GEO.cone)
-
-  return {
-    group,
-    animateLimbs: (t) => {
-      head.rotation.x = Math.sin(t * 0.8) * 0.05
-      tail.rotation.z = Math.sin(t * 1.4) * 0.15
-      legs.forEach((leg, i) => {
-        leg.rotation.x = Math.sin(t * 4 + i * Math.PI) * 0.35
-      })
-    },
-  }
-}
-
-function buildBrachiosaurus(color: string): DinoRig {
-  const group = new THREE.Group()
-  const dark = new THREE.Color(color).multiplyScalar(0.8).getStyle()
-
-  block(group, color, [1.6, 1.7, 3.2], [0, 2.6, 0]) // torso
-
-  const neck = new THREE.Group()
-  neck.position.set(0, 3.3, 1.3)
-  group.add(neck)
-  block(neck, color, [0.7, 3.6, 0.7], [0, 1.6, 0.4], [-0.55, 0, 0], GEO.cylinder)
-  const head = block(neck, dark, [0.45, 0.4, 0.7], [0, 3.3, 1.2])
-
-  const tail = block(group, color, [0.5, 0.5, 3], [0, 2.3, -2.4], [Math.PI / 2, 0, 0], GEO.cone)
-
-  const legs: THREE.Mesh[] = []
-  const legPositions: [number, number, number][] = [
-    [-0.7, 1.3, 1.0],
-    [0.7, 1.3, 1.0],
-    [-0.7, 1.3, -1.0],
-    [0.7, 1.3, -1.0],
-  ]
-  for (const p of legPositions) legs.push(block(group, dark, [0.45, 2.6, 0.45], p, [0, 0, 0], GEO.cylinder))
-
-  return {
-    group,
-    animateLimbs: (t) => {
-      neck.rotation.x = Math.sin(t * 0.35) * 0.06
-      head.rotation.y = Math.sin(t * 0.5) * 0.2
-      tail.rotation.y = Math.sin(t * 0.4) * 0.1
-      legs.forEach((leg, i) => {
-        leg.rotation.x = Math.sin(t * 1.5 + i * Math.PI) * 0.12
-      })
-    },
-  }
-}
-
-function buildTRex(color: string): DinoRig {
-  const group = new THREE.Group()
-  const dark = new THREE.Color(color).multiplyScalar(0.7).getStyle()
-
-  const torso = block(group, color, [1.3, 1.5, 2.6], [0, 2.3, 0], [0.25, 0, 0])
-  const tail = block(group, color, [0.5, 0.5, 3.2], [0, 2.0, -2.4], [Math.PI / 2 - 0.15, 0, 0], GEO.cone)
-  const head = block(group, dark, [0.85, 0.75, 1.3], [0, 3.1, 1.7], [0.1, 0, 0])
-  block(group, '#e8dcc0', [0.65, 0.15, 0.4], [0, 2.75, 2.35], [0.1, 0, 0])
-
-  const armL = block(group, color, [0.15, 0.4, 0.15], [-0.55, 2.1, 1.0], [0.4, 0, 0], GEO.cylinder)
-  const armR = block(group, color, [0.15, 0.4, 0.15], [0.55, 2.1, 1.0], [0.4, 0, 0], GEO.cylinder)
-
-  const legs: THREE.Mesh[] = []
-  const legPositions: [number, number, number][] = [
-    [-0.5, 1.05, -0.1],
-    [0.5, 1.05, -0.1],
-  ]
-  for (const p of legPositions) legs.push(block(group, color, [0.45, 2.1, 0.45], p, [0, 0, 0], GEO.cylinder))
-
-  return {
-    group,
-    animateLimbs: (t) => {
-      head.rotation.y = Math.sin(t * 0.7) * 0.3
-      tail.rotation.y = Math.sin(t * 1.8) * 0.25
-      armL.rotation.x = Math.sin(t * 1.5) * 0.1
-      armR.rotation.x = Math.sin(t * 1.5 + 1) * 0.1
-      torso.position.y = 2.3 + Math.sin(t * 3.6) * 0.05
-      legs.forEach((leg, i) => {
-        leg.rotation.x = Math.sin(t * 3.6 + i * Math.PI) * 0.3
-      })
-    },
-  }
-}
-
-const BUILDERS: Record<string, (color: string) => DinoRig> = {
-  velociraptor: buildVelociraptor,
-  triceratops: buildTriceratops,
-  brachiosaurus: buildBrachiosaurus,
-  't-rex': buildTRex,
-}
-
-const WANDER_RADIUS = 22
-const WANDER_SPEED_RANGE: [number, number] = [1.1, 2.2]
 
 export interface DinoInstance {
   id: string
+  index: number
   group: THREE.Group
+  proximity: number
   update: (dt: number, elapsed: number) => void
 }
 
-function randomPointNear(center: THREE.Vector2, radius: number): THREE.Vector2 {
-  const angle = Math.random() * Math.PI * 2
-  const dist = Math.random() * radius
-  return new THREE.Vector2(center.x + Math.cos(angle) * dist, center.y + Math.sin(angle) * dist)
+// --- Andar procedural para modelos sin esqueleto ---------------------------------------------
+
+interface GaitRig {
+  hipZ: number
+  shoulderZ: number
+  pivotY: number
+  reach: number
+  halfWidth: number
+  minZ: number
+  maxZ: number
+  tailStart: number
+  neckStart: number
+  length: number
+  quad: boolean
 }
 
-export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[]): DinoInstance[] {
+/** Analiza la geometría ya normalizada (metros, hocico hacia +Z, pies en y = 0) para situar patas, cola y cuello. */
+function analyseRig(geometries: THREE.BufferGeometry[], gait: Gait): GaitRig {
+  const box = new THREE.Box3()
+  for (const g of geometries) {
+    g.computeBoundingBox()
+    box.union(g.boundingBox!)
+  }
+  const height = box.max.y - box.min.y
+  const length = box.max.z - box.min.z
+  const feet: number[] = []
+  for (const g of geometries) {
+    const pos = g.attributes.position
+    for (let i = 0; i < pos.count; i += 3) if (pos.getY(i) < height * 0.05) feet.push(pos.getZ(i))
+  }
+  feet.sort((a, b) => a - b)
+  const mid = feet.length ? (feet[0] + feet[feet.length - 1]) / 2 : 0
+  const mean = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0)
+  const back = gait === 'quad' ? feet.filter((z) => z < mid) : feet
+  const front = gait === 'quad' ? feet.filter((z) => z >= mid) : feet
+  const hipZ = mean(back)
+  const shoulderZ = gait === 'quad' ? mean(front) : hipZ
+
+  // Altura de la tripa sobre las caderas: por ahí se unen las patas al cuerpo.
+  let belly = Infinity
+  for (const g of geometries) {
+    const pos = g.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      if (Math.abs(pos.getZ(i) - hipZ) < length * 0.04 && Math.abs(pos.getX(i)) < (box.max.x - box.min.x) * 0.08) {
+        belly = Math.min(belly, pos.getY(i))
+      }
+    }
+  }
+  if (!Number.isFinite(belly)) belly = height * 0.4
+  return {
+    hipZ,
+    shoulderZ,
+    pivotY: belly * 1.15,
+    reach: length * (gait === 'quad' ? 0.1 : 0.12),
+    halfWidth: (box.max.x - box.min.x) / 2,
+    minZ: box.min.z,
+    maxZ: box.max.z,
+    tailStart: hipZ - length * 0.08,
+    neckStart: (gait === 'quad' ? shoulderZ : hipZ) + length * 0.12,
+    length,
+    quad: gait === 'quad',
+  }
+}
+
+interface GaitUniforms {
+  uPhase: THREE.IUniform<number>
+  uStride: THREE.IUniform<number>
+  uTime: THREE.IUniform<number>
+  uLook: THREE.IUniform<number>
+}
+
+function gaitShaderChunk(rig: GaitRig): string {
+  const f = (v: number) => v.toFixed(4)
+  return /* glsl */ `
+    // --- andar procedural ---
+    float legSwing(vec3 p, float legZ, float phase) {
+      float side = p.x >= 0.0 ? 1.0 : -1.0;
+      float sideW = smoothstep(${f(rig.halfWidth * 0.03)}, ${f(rig.halfWidth * 0.2)}, abs(p.x));
+      float along = 1.0 - smoothstep(${f(rig.reach * 0.55)}, ${f(rig.reach)}, abs(p.z - legZ));
+      float below = 1.0 - smoothstep(${f(rig.pivotY * 0.7)}, ${f(rig.pivotY)}, p.y);
+      return sideW * along * below * side;
+    }
+    vec3 swingLeg(vec3 p, float legZ, float phase, float weight) {
+      if (abs(weight) < 0.001) return p;
+      float side = sign(weight);
+      float legPhase = phase + (side > 0.0 ? 0.0 : 3.14159);
+      float angle = sin(legPhase) * 0.42 * uStride * abs(weight);
+      float dz = p.z - legZ;
+      float dy = p.y - ${f(rig.pivotY)};
+      float c = cos(angle);
+      float s = sin(angle);
+      vec3 r = p;
+      r.z = legZ + dz * c - dy * s;
+      r.y = ${f(rig.pivotY)} + dz * s + dy * c;
+      // Levanta el pie en la fase de avance.
+      r.y += max(0.0, cos(legPhase)) * ${f(rig.pivotY * 0.14)} * uStride * abs(weight) * (1.0 - p.y / ${f(rig.pivotY)});
+      return r;
+    }
+    vec3 gaitDeform(vec3 p) {
+      vec3 q = p;
+      float wHind = legSwing(p, ${f(rig.hipZ)}, uPhase);
+      q = swingLeg(q, ${f(rig.hipZ)}, uPhase, wHind);
+      ${
+        rig.quad
+          ? `float wFore = legSwing(p, ${f(rig.shoulderZ)}, uPhase);
+      q = swingLeg(q, ${f(rig.shoulderZ)}, uPhase + 1.5708, wFore);`
+          : 'float wFore = 0.0;'
+      }
+      float legW = max(abs(wHind), abs(wFore));
+      // Cola: ondulación que viaja hacia la punta.
+      float tailT = clamp((${f(rig.tailStart)} - p.z) / ${f(rig.tailStart - rig.minZ)}, 0.0, 1.0);
+      q.x += sin(uTime * 1.6 + uPhase * 0.5 - tailT * 2.6) * ${f(rig.length * 0.045)} * tailT * tailT;
+      // Cuello y cabeza: miran alrededor.
+      float neckT = clamp((p.z - ${f(rig.neckStart)}) / ${f(rig.maxZ - rig.neckStart)}, 0.0, 1.0);
+      q.x += uLook * ${f(rig.length * 0.06)} * neckT * neckT;
+      q.y += sin(uTime * 0.8) * ${f(rig.length * 0.012)} * neckT * neckT;
+      // Balanceo del cuerpo al andar y respiración.
+      q.y += (1.0 - legW) * (abs(sin(uPhase)) * ${f(rig.pivotY * 0.035)} * uStride + sin(uTime * 1.9) * ${f(rig.pivotY * 0.006)});
+      return q;
+    }
+  `
+}
+
+function applyGait(material: THREE.Material, rig: GaitRig, uniforms: GaitUniforms): void {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms)
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        uniform float uPhase;
+        uniform float uStride;
+        uniform float uTime;
+        uniform float uLook;
+        ${gaitShaderChunk(rig)}`,
+      )
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed = gaitDeform(transformed);')
+  }
+  // Todas las especies comparten el mismo código base; la clave evita mezclar programas de rigs distintos.
+  material.customProgramCacheKey = () => `gait-${rig.hipZ.toFixed(3)}-${rig.shoulderZ.toFixed(3)}-${rig.pivotY.toFixed(3)}`
+}
+
+// --- Carga de modelos --------------------------------------------------------------------------
+
+interface LoadedSpecies {
+  /** Crea un ejemplar listo para añadir a la escena. */
+  spawn: () => { object: THREE.Object3D; animate: (dt: number, elapsed: number, stride: number, phase: number, look: number) => void }
+  strideLength: number
+}
+
+function normalizeTransform(root: THREE.Object3D, config: SpeciesConfig): THREE.Matrix4 {
+  root.updateMatrixWorld(true)
+  const box = new THREE.Box3().setFromObject(root)
+  const size = box.getSize(new THREE.Vector3())
+  const scale = config.length / Math.max(size.z, size.x)
+  const center = box.getCenter(new THREE.Vector3())
+  const rotation = config.facing === -1 ? Math.PI : 0
+  // Centra en XZ, apoya los pies en y = 0, escala a metros y gira para mirar a +Z.
+  return new THREE.Matrix4()
+    .makeRotationY(rotation)
+    .multiply(new THREE.Matrix4().makeScale(scale, scale, scale))
+    .multiply(new THREE.Matrix4().makeTranslation(-center.x, -box.min.y, -center.z))
+}
+
+function prepareStatic(gltf: { scene: THREE.Object3D }, config: SpeciesConfig): LoadedSpecies {
+  const root = gltf.scene
+  const normalize = normalizeTransform(root, config)
+  const parts: { geometry: THREE.BufferGeometry; material: THREE.Material }[] = []
+  root.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      const geometry = bakedGeometry(obj, root)
+      geometry.applyMatrix4(normalize)
+      geometry.computeBoundingSphere()
+      parts.push({ geometry, material: obj.material as THREE.Material })
+    }
+  })
+  const rig = analyseRig(
+    parts.map((p) => p.geometry),
+    config.gait ?? 'biped',
+  )
+
+  return {
+    strideLength: rig.pivotY * (rig.quad ? 1.5 : 1.8),
+    spawn: () => {
+      const uniforms: GaitUniforms = {
+        uPhase: { value: 0 },
+        uStride: { value: 0 },
+        uTime: { value: 0 },
+        uLook: { value: 0 },
+      }
+      const group = new THREE.Group()
+      for (const part of parts) {
+        const material = (part.material as THREE.MeshStandardMaterial).clone()
+        applyGait(material, rig, uniforms)
+        const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
+        applyGait(depth, rig, uniforms)
+        const mesh = new THREE.Mesh(part.geometry, material)
+        mesh.customDepthMaterial = depth
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+        // La deformación saca vértices de la esfera de recorte original.
+        mesh.frustumCulled = false
+        group.add(mesh)
+      }
+      return {
+        object: group,
+        animate: (_dt, elapsed, stride, phase, look) => {
+          uniforms.uTime.value = elapsed
+          uniforms.uStride.value = stride
+          uniforms.uPhase.value = phase
+          uniforms.uLook.value = look
+        },
+      }
+    },
+  }
+}
+
+function prepareSkeletal(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }, config: SpeciesConfig): LoadedSpecies {
+  const normalize = normalizeTransform(gltf.scene, config)
+  const clip = gltf.animations[0]
+  return {
+    strideLength: config.length * 0.3,
+    spawn: () => {
+      const model = cloneSkinned(gltf.scene)
+      const holder = new THREE.Group()
+      holder.matrixAutoUpdate = false
+      holder.matrix.copy(normalize)
+      holder.add(model)
+      model.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.castShadow = true
+          obj.receiveShadow = true
+          obj.frustumCulled = false
+        }
+      })
+      const mixer = new THREE.AnimationMixer(model)
+      if (clip) {
+        const action = mixer.clipAction(clip)
+        action.timeScale = config.skeletal?.timeScale ?? 1
+        action.play()
+        // Desfasa a cada ejemplar para que no se muevan al unísono.
+        mixer.setTime(Math.random() * clip.duration)
+      }
+      const group = new THREE.Group()
+      group.add(holder)
+      return {
+        object: group,
+        animate: (dt, _elapsed, stride) => {
+          // Si el animal está parado, la animación sigue pero más lenta (respira, mira).
+          mixer.update(dt * (config.habitat === 'water' ? 1 : 0.55 + 0.45 * stride))
+        },
+      }
+    },
+  }
+}
+
+// --- Comportamiento ----------------------------------------------------------------------------
+
+function pickTarget(config: SpeciesConfig, home: THREE.Vector2, rand: () => number, out: THREE.Vector2): THREE.Vector2 {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (config.habitat === 'shore') {
+      // Orilla del lago: entre 1,05 y 1,45 radios del centro, en el arco que mira a su "casa".
+      const baseAngle = Math.atan2(home.y - LAKE.z, home.x - LAKE.x)
+      const angle = baseAngle + (rand() - 0.5) * 1.6
+      const dist = LAKE.radius * (1.1 + rand() * 0.4)
+      out.set(LAKE.x + Math.cos(angle) * dist, LAKE.z + Math.sin(angle) * dist)
+    } else {
+      const angle = rand() * Math.PI * 2
+      const dist = Math.sqrt(rand()) * config.wanderRadius
+      out.set(home.x + Math.cos(angle) * dist, home.y + Math.sin(angle) * dist)
+    }
+    const limit = WORLD_BOUNDS - 10
+    out.set(THREE.MathUtils.clamp(out.x, -limit, limit), THREE.MathUtils.clamp(out.y, -limit, limit))
+    if (!isUnderwater(out.x, out.y, -0.4)) return out
+  }
+  return out.copy(home)
+}
+
+export interface DinosaurHerds {
+  instances: DinoInstance[]
+}
+
+export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale: number): DinosaurHerds {
   const instances: DinoInstance[] = []
 
-  dinos.forEach((dino) => {
-    const builder = BUILDERS[dino.id] ?? buildVelociraptor
-    const rig = builder(dino.color)
-
+  dinos.forEach((dino, speciesIndex) => {
+    const config = SPECIES[dino.id]
+    if (!config) return
     const zone = zones.find((z) => z.id === dino.zoneId) ?? zones[0]
-    const home = new THREE.Vector2(zone.corner[0] * 0.55, zone.corner[1] * 0.55)
-    let target = randomPointNear(home, WANDER_RADIUS)
-    const speed = WANDER_SPEED_RANGE[0] + Math.random() * (WANDER_SPEED_RANGE[1] - WANDER_SPEED_RANGE[0])
-    let heading = 0
+    const baseHome = zoneHome(zone)
+    const herdSize = Math.max(1, Math.round(config.herd * herdScale))
 
-    const startY = heightAtPosition(home.x, home.y)
-    rig.group.position.set(home.x, startY, home.y)
+    for (let i = 0; i < herdSize; i++) {
+      const rand = seededRandom(speciesIndex * 131 + i * 17 + 3)
+      const group = new THREE.Group()
+      group.rotation.order = 'YXZ'
+      group.userData.dinoId = dino.id
+      scene.add(group)
 
-    // Foco cálido tipo "exhibición nocturna de zoo" para que el dinosaurio destaque entre la niebla.
-    const spotlight = new THREE.PointLight(dino.accent, 4, 16, 2)
-    spotlight.position.set(0, 3.4, 0.5)
-    rig.group.add(spotlight)
+      // Cada especie tiene su propio rincón dentro de la zona para que no se amontonen.
+      const home = baseHome.clone().add(new THREE.Vector2(Math.cos(speciesIndex * 2.4) * 16, Math.sin(speciesIndex * 2.4) * 16))
+      const position = new THREE.Vector2()
+      let heading = rand() * Math.PI * 2
+      if (config.habitat === 'water') {
+        position.set(LAKE.x + LAKE.radius * 0.5, LAKE.z)
+      } else {
+        pickTarget(config, home, rand, position)
+        position.x += i * 4
+      }
+      const target = pickTarget(config, home, rand, new THREE.Vector2())
+      const speed = config.speed[0] + rand() * (config.speed[1] - config.speed[0])
+      let idleTimer = rand() * 4
+      let stride = 0
+      let phase = 0
+      let look = 0
+      let lookTarget = 0
+      let lookTimer = 0
+      let swimAngle = (i / herdSize) * Math.PI * 2
+      const swimRadius = LAKE.radius * (0.45 + i * 0.18)
+      let animate: ((dt: number, elapsed: number, stride: number, phase: number, look: number) => void) | null = null
+      let strideLength = 2
 
-    rig.group.userData.dinoId = dino.id
-    scene.add(rig.group)
+      loadSpecies(dino.id, config).then((species) => {
+        const spawned = species.spawn()
+        group.add(spawned.object)
+        animate = spawned.animate
+        strideLength = species.strideLength
+      })
 
-    // Referencia a todo lo que forma la primitiva de recambio (meshes y sub-grupos como el
-    // cuello del Brachiosaurio) tomada antes de añadir el foco, para poder retirarla entera
-    // y sin colgajos en cuanto llegue el modelo real.
-    const fallbackChildren = [...rig.group.children]
-
-    let animateVisual = rig.animateLimbs
-    const modelConfig = MODEL_CONFIG[dino.id]
-    if (modelConfig) {
-      gltfLoader.load(
-        modelConfig.url,
-        (gltf) => {
-          for (const child of fallbackChildren) rig.group.remove(child)
-          gltf.scene.scale.setScalar(modelConfig.scale)
-          gltf.scene.rotation.y = modelConfig.rotationY
-          gltf.scene.traverse((obj) => {
-            if (obj instanceof THREE.Mesh) {
-              obj.castShadow = true
-              obj.receiveShadow = true
-            }
-          })
-          rig.group.add(gltf.scene)
-          animateVisual = (t) => {
-            gltf.scene.position.y = Math.sin(t * 1.2) * 0.05
+      const toTarget = new THREE.Vector2()
+      instances.push({
+        id: dino.id,
+        index: i,
+        group,
+        proximity: config.proximity,
+        update: (dt, elapsed) => {
+          let moving = false
+          if (config.habitat === 'water') {
+            // Nada en círculos amplios por el lago, subiendo y bajando suavemente.
+            swimAngle += (speed / swimRadius) * dt
+            position.set(LAKE.x + Math.cos(swimAngle) * swimRadius, LAKE.z + Math.sin(swimAngle) * swimRadius * 0.8)
+            heading = Math.atan2(-Math.sin(swimAngle), Math.cos(swimAngle) * 0.8)
+            group.position.set(position.x, WATER_LEVEL - 0.55 + Math.sin(elapsed * 0.4 + i) * 0.35, position.y)
+            group.rotation.set(0, heading, 0)
+            animate?.(dt, elapsed, 1, 0, 0)
+            return
           }
+
+          if (idleTimer > 0) {
+            idleTimer -= dt
+          } else {
+            toTarget.copy(target).sub(position)
+            const distance = toTarget.length()
+            if (distance < 0.8) {
+              pickTarget(config, home, rand, target)
+              if (rand() < config.idleChance) idleTimer = 3 + rand() * 9
+            } else {
+              toTarget.divideScalar(distance)
+              const desired = Math.atan2(toTarget.x, toTarget.y)
+              const delta = Math.atan2(Math.sin(desired - heading), Math.cos(desired - heading))
+              heading += delta * Math.min(1, dt * 1.6)
+              // Gira antes de arrancar: nada de andar de lado.
+              const alignment = Math.max(0, Math.cos(delta))
+              const step = speed * alignment * dt
+              const nextX = position.x + Math.sin(heading) * step
+              const nextZ = position.y + Math.cos(heading) * step
+              if (isUnderwater(nextX, nextZ, -0.3)) {
+                pickTarget(config, home, rand, target)
+              } else {
+                position.set(nextX, nextZ)
+                moving = step > 0.0001
+              }
+            }
+          }
+
+          stride = THREE.MathUtils.lerp(stride, moving ? 1 : 0, Math.min(1, dt * 3))
+          phase += (dt * speed * stride * Math.PI * 2) / strideLength
+
+          // Mira a los lados de vez en cuando.
+          lookTimer -= dt
+          if (lookTimer <= 0) {
+            lookTarget = (rand() - 0.5) * 2 * (moving ? 0.3 : 1)
+            lookTimer = 2 + rand() * 4
+          }
+          look = THREE.MathUtils.lerp(look, lookTarget, Math.min(1, dt * 1.2))
+
+          // Se inclina con la pendiente del terreno.
+          const halfLength = config.length * 0.3
+          const fx = Math.sin(heading) * halfLength
+          const fz = Math.cos(heading) * halfLength
+          const hFront = heightAtPosition(position.x + fx, position.y + fz)
+          const hBack = heightAtPosition(position.x - fx, position.y - fz)
+          const pitch = THREE.MathUtils.clamp(-Math.atan2(hFront - hBack, halfLength * 2), -0.3, 0.3)
+          const groundY = Math.min(hFront, hBack, heightAtPosition(position.x, position.y))
+          group.position.set(position.x, groundY - 0.05, position.y)
+          group.rotation.set(pitch, heading, 0)
+          animate?.(dt, elapsed, stride, phase, look)
         },
-        undefined,
-        (error) => console.error(`No se pudo cargar el modelo de ${dino.id}, se mantiene la primitiva de recambio:`, error),
-      )
+      })
     }
-
-    const position2D = new THREE.Vector2(home.x, home.y)
-
-    instances.push({
-      id: dino.id,
-      group: rig.group,
-      update: (dt, elapsed) => {
-        const toTarget = target.clone().sub(position2D)
-        const distance = toTarget.length()
-        if (distance < 0.6) {
-          target = randomPointNear(home, WANDER_RADIUS)
-        } else {
-          toTarget.normalize()
-          position2D.addScaledVector(toTarget, Math.min(speed * dt, distance))
-          const desiredHeading = Math.atan2(toTarget.x, toTarget.y)
-          let delta = desiredHeading - heading
-          delta = Math.atan2(Math.sin(delta), Math.cos(delta))
-          heading += delta * Math.min(1, dt * 3)
-        }
-
-        const groundY = heightAtPosition(position2D.x, position2D.y)
-        rig.group.position.set(position2D.x, groundY, position2D.y)
-        rig.group.rotation.y = heading
-        animateVisual(elapsed)
-      },
-    })
   })
 
-  return instances
+  return { instances }
+}
+
+const speciesCache = new Map<string, Promise<LoadedSpecies>>()
+
+function loadSpecies(id: string, config: SpeciesConfig): Promise<LoadedSpecies> {
+  let pending = speciesCache.get(id)
+  if (!pending) {
+    pending = gltfLoader.loadAsync(config.url).then((gltf) => (config.skeletal ? prepareSkeletal(gltf, config) : prepareStatic(gltf, config)))
+    pending.catch((error) => console.error(`No se pudo cargar el modelo de ${id}:`, error))
+    speciesCache.set(id, pending)
+  }
+  return pending
 }

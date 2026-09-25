@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react'
 import type { GameApi } from '@hooks/useGame'
 import { ZONE_MAP_TINTS } from '@data/zoneMap'
-import { WORLD_BOUNDS } from '@scene/constants'
+import { LAKE, WORLD_BOUNDS } from '@scene/constants'
 
 interface Props {
   getSnapshot: GameApi['getMinimapSnapshot']
 }
 
 const SIZE = 120
-const DOT_RADIUS = 4
+const DOT_RADIUS = 3.2
 const PLAYER_SIZE = 6
 
 function worldToMap(x: number, z: number): [number, number] {
@@ -45,6 +45,13 @@ export function MiniMap({ getSnapshot }: Props) {
         ctx.fillRect(left, top, SIZE / 2, SIZE / 2)
       }
       ctx.globalAlpha = 1
+
+      // El lago, para orientarse.
+      const [lx, lz] = worldToMap(LAKE.x, LAKE.z)
+      ctx.fillStyle = '#2f6f8a'
+      ctx.beginPath()
+      ctx.arc(lx, lz, (LAKE.radius / (WORLD_BOUNDS * 2)) * SIZE, 0, Math.PI * 2)
+      ctx.fill()
 
       if (snapshot) {
         for (const dino of snapshot.dinos) {

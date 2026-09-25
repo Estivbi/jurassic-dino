@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { dinos } from '@data/dinos'
 import { detectQuality } from '@scene/quality'
 import { createInputState, attachKeyboardControls, type InputState } from '@scene/input'
-import type { GameScene, MinimapSnapshot } from '@scene/GameScene'
-import type { GamePhase } from '@ride-types/ride'
+import type { GameScene, MinimapSnapshot, SkyInfo } from '@scene/GameScene'
+import type { ConstellationLabel } from '@scene/sky'
+import type { GamePhase, ZoneId } from '@ride-types/ride'
 
 const ZERO_INPUT: InputState = { forward: false, back: false, left: false, right: false }
 
@@ -14,12 +15,21 @@ export interface GameApi {
   nearbyDino: (typeof dinos)[number] | null
   cardDino: (typeof dinos)[number] | null
   discovered: Set<string>
+  /** Resultado del quiz de cada especie ya respondida (true = acierto). */
+  quizResults: Map<string, boolean>
   totalDinos: number
+  zoneId: ZoneId | null
+  skyInfo: SkyInfo | null
+  constellationsOn: boolean
   start: () => void
   openCard: () => void
   closeCard: () => void
+  answerQuiz: (dinoId: string, correct: boolean) => void
   pressTouch: (key: keyof InputState, pressed: boolean) => void
   getMinimapSnapshot: () => MinimapSnapshot | null
+  getConstellationLabels: () => ConstellationLabel[]
+  setHourOffset: (hours: number) => void
+  setConstellationsOn: (on: boolean) => void
 }
 
 export function useGame(): GameApi {
@@ -30,16 +40,22 @@ export function useGame(): GameApi {
   const phaseRef = useRef<GamePhase>('gate')
   const cardOpenIdRef = useRef<string | null>(null)
   const lastNearbyRef = useRef<string | null>(null)
+  const lastZoneRef = useRef<ZoneId | null>(null)
 
   const [phase, setPhase] = useState<GamePhase>('gate')
   const [nearbyDinoId, setNearbyDinoId] = useState<string | null>(null)
   const [cardOpenId, setCardOpenId] = useState<string | null>(null)
   const [discovered, setDiscovered] = useState<Set<string>>(new Set())
+  const [quizResults, setQuizResults] = useState<Map<string, boolean>>(new Map())
+  const [zoneId, setZoneId] = useState<ZoneId | null>(null)
+  const [skyInfo, setSkyInfo] = useState<SkyInfo | null>(null)
+  const [constellationsOn, setConstellationsOnState] = useState(false)
 
   useEffect(() => {
     if (!canvasRef.current) return
     let cancelled = false
     let detachKeyboard: (() => void) | null = null
+    let skyInterval: number | undefined
 
     import('@scene/GameScene').then(({ GameScene }) => {
       if (cancelled || !canvasRef.current) return
@@ -49,14 +65,20 @@ export function useGame(): GameApi {
       if (import.meta.env.DEV) (window as unknown as { __gameScene?: GameScene }).__gameScene = scene
 
       scene.startLoop(
-        (nearbyId) => {
-          if (nearbyId !== lastNearbyRef.current) {
-            lastNearbyRef.current = nearbyId
-            setNearbyDinoId(nearbyId)
+        (frame) => {
+          if (frame.nearbyDinoId !== lastNearbyRef.current) {
+            lastNearbyRef.current = frame.nearbyDinoId
+            setNearbyDinoId(frame.nearbyDinoId)
+          }
+          if (frame.zoneId !== lastZoneRef.current) {
+            lastZoneRef.current = frame.zoneId
+            setZoneId(frame.zoneId)
           }
         },
         () => (phaseRef.current === 'driving' && !cardOpenIdRef.current ? inputRef.current : ZERO_INPUT),
       )
+      setSkyInfo(scene.getSkyInfo())
+      skyInterval = window.setInterval(() => setSkyInfo(sceneRef.current?.getSkyInfo() ?? null), 1000)
     })
 
     const resizeObserver = new ResizeObserver(() => sceneRef.current?.resize())
@@ -64,6 +86,7 @@ export function useGame(): GameApi {
 
     return () => {
       cancelled = true
+      window.clearInterval(skyInterval)
       resizeObserver.disconnect()
       detachKeyboard?.()
       sceneRef.current?.dispose()
@@ -89,6 +112,10 @@ export function useGame(): GameApi {
     setCardOpenId(null)
   }, [])
 
+  const answerQuiz = useCallback((dinoId: string, correct: boolean) => {
+    setQuizResults((prev) => (prev.has(dinoId) ? prev : new Map(prev).set(dinoId, correct)))
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.code === 'KeyE' || event.code === 'Enter') && !cardOpenIdRef.current && lastNearbyRef.current) {
@@ -106,6 +133,17 @@ export function useGame(): GameApi {
   }, [])
 
   const getMinimapSnapshot = useCallback(() => sceneRef.current?.getMinimapSnapshot() ?? null, [])
+  const getConstellationLabels = useCallback(() => sceneRef.current?.getConstellationLabels() ?? [], [])
+
+  const setHourOffset = useCallback((hours: number) => {
+    sceneRef.current?.setHourOffset(hours)
+    setSkyInfo(sceneRef.current?.getSkyInfo() ?? null)
+  }, [])
+
+  const setConstellationsOn = useCallback((on: boolean) => {
+    sceneRef.current?.setConstellationsVisible(on)
+    setConstellationsOnState(on)
+  }, [])
 
   const nearbyDino = nearbyDinoId ? (dinos.find((d) => d.id === nearbyDinoId) ?? null) : null
   const cardDino = cardOpenId ? (dinos.find((d) => d.id === cardOpenId) ?? null) : null
@@ -117,11 +155,19 @@ export function useGame(): GameApi {
     nearbyDino,
     cardDino,
     discovered,
+    quizResults,
     totalDinos: dinos.length,
+    zoneId,
+    skyInfo,
+    constellationsOn,
     start,
     openCard,
     closeCard,
+    answerQuiz,
     pressTouch,
     getMinimapSnapshot,
+    getConstellationLabels,
+    setHourOffset,
+    setConstellationsOn,
   }
 }
