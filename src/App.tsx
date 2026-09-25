@@ -31,6 +31,9 @@ export default function App() {
           setConstellationsOn={game.setConstellationsOn}
           setHourOffset={game.setHourOffset}
           getConstellationLabels={game.getConstellationLabels}
+          soundOn={game.soundOn}
+          toggleSound={game.toggleSound}
+          playDinoCall={game.playDinoCall}
           onShowCredits={() => setShowCredits(true)}
         />
       )}

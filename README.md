@@ -29,10 +29,14 @@ estático.
   o empujan, gravedad (en una cresta rápida el jeep se despega), rebote al chocar con
   troncos, rocas o dinosaurios, y suspensión con muelles que hunde o inclina la
   carrocería al acelerar, frenar y girar.
-- **Dinosaurios**: modelos 3D reales con licencia CC BY, a su tamaño real y en
-  manadas. Los que traen esqueleto animado usan su animación; el resto camina
+- **Dinosaurios**: modelos 3D reales con licencia CC BY, escalados a su largo y alto
+  reales (la ficha lo compara con el jeep) y en manadas. Los que traen esqueleto animado usan su animación; el resto camina
   con un andar procedural en el vertex shader (patas, cola y cuello). Esquivan
   troncos, rocas y a los demás animales.
+- **Sonido** sintetizado en el navegador (sin archivos): voz de cada especie con audio
+  3D al acercarte (reconstrucciones basadas en aves, cocodrilos y grandes animales
+  actuales, porque ningún sonido de dinosaurio se ha conservado), motor del jeep según
+  la velocidad, viento, agua junto al lago y grillos de noche. Se puede silenciar.
 - **Capa educativa**: ficha de cada especie con datos contrastados, un mito
   desmontado y una pregunta tipo quiz (los aciertos suman estrellas en el
   álbum), carteles de zona sobre flora y fósiles, y curiosidades del cielo.

@@ -26,6 +26,9 @@ type Props = Pick<
   | 'setConstellationsOn'
   | 'setHourOffset'
   | 'getConstellationLabels'
+  | 'soundOn'
+  | 'toggleSound'
+  | 'playDinoCall'
 > & { onShowCredits: () => void }
 
 export function HUD(props: Props) {
@@ -49,6 +52,15 @@ export function HUD(props: Props) {
             <MiniMap getSnapshot={props.getMinimapSnapshot} />
             <button
               type="button"
+              onClick={props.toggleSound}
+              aria-pressed={props.soundOn}
+              aria-label={props.soundOn ? 'Silenciar el sonido' : 'Activar el sonido'}
+              className="pointer-events-auto rounded-full bg-black/40 px-3 py-1 text-xs text-[var(--cream)]/75 backdrop-blur-sm active:scale-95"
+            >
+              {props.soundOn ? '🔊 Sonido' : '🔇 Silencio'}
+            </button>
+            <button
+              type="button"
               onClick={props.onShowCredits}
               className="pointer-events-auto rounded-full bg-black/40 px-3 py-1 text-xs text-[var(--cream)]/75 backdrop-blur-sm active:scale-95"
             >
@@ -70,7 +82,13 @@ export function HUD(props: Props) {
               transition={{ duration: 0.25 }}
               className="pointer-events-none w-full"
             >
-              <DinoCard dino={cardDino} quizResult={quizResults.get(cardDino.id)} onAnswer={answerQuiz} onClose={closeCard} />
+              <DinoCard
+                dino={cardDino}
+                quizResult={quizResults.get(cardDino.id)}
+                onAnswer={answerQuiz}
+                onClose={closeCard}
+                onPlayCall={props.soundOn ? () => props.playDinoCall(cardDino.id) : undefined}
+              />
             </motion.div>
           ) : (
             <ProximityPrompt dino={nearbyDino} onOpen={openCard} />

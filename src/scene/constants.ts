@@ -5,3 +5,6 @@ export const TERRAIN_SIZE = WORLD_BOUNDS * 2.2
 /** Lago de la zona de la laguna (cuenca excavada en el terreno). */
 export const LAKE = { x: 84, z: 84, radius: 30 }
 export const WATER_LEVEL = 0
+
+/** Largo del jeep del parque (m), para comparar tamaños en las fichas. */
+export const JEEP_LENGTH = 4

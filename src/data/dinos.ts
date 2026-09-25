@@ -17,6 +17,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace 75-71 millones de años',
     zoneId: 'jungla',
     accent: '#f3b93f',
+    lengthM: 2.0,
+    heightM: 0.7,
+    voice: 'chirp',
+    soundFact:
+      'Como pariente cercano de las aves, pudo sisear, silbar o hacer reclamos, no rugir. Lo que oyes es una reconstrucción inspirada en aves y cocodrilos actuales.',
     stats: [
       { label: 'Longitud', value: '~2 m (con cola)' },
       { label: 'Altura a la cadera', value: '~0,5 m' },
@@ -32,7 +37,7 @@ export const dinos: DinoData[] = [
     mythTitle: 'El mito: era del tamaño de una persona',
     myth: 'Los raptores de las películas miden casi lo que un humano y no tienen ni una pluma.',
     truth:
-      'El Velociraptor real tenía el tamaño de un pavo grande. Los de la película (y los que ves en el parque) se inspiraron en su primo Deinonychus, de unos 3,5 m. Y todos ellos iban emplumados.',
+      'El Velociraptor real tenía el tamaño de un pavo grande, y así de pequeños los ves en el parque. Los de la película se inspiraron en su primo Deinonychus, de unos 3,5 m. Y todos ellos iban emplumados.',
     quiz: {
       question: '¿Qué tenía el Velociraptor real que no sale en las películas?',
       options: ['Plumas', 'Veneno en la saliva', 'Una cresta que brillaba'],
@@ -51,6 +56,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace 68-66 millones de años',
     zoneId: 'llanura',
     accent: '#9fd8a3',
+    lengthM: 8.5,
+    heightM: 3.0,
+    voice: 'grunt',
+    soundFact:
+      'No se sabe cómo sonaba. Se suele imaginar con gruñidos graves, como los de grandes herbívoros actuales, pero es una suposición.',
     stats: [
       { label: 'Longitud', value: '8-9 m' },
       { label: 'Peso', value: '6-12 t (estimación)' },
@@ -86,6 +96,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace 96-92 millones de años',
     zoneId: 'llanura',
     accent: '#e8d38a',
+    lengthM: 33,
+    heightM: 10,
+    voice: 'bellow',
+    soundFact:
+      'Se cree que los saurópodos se comunicaban con sonidos muy graves que viajan lejos, como hacen hoy los elefantes. Es una hipótesis: lo que oyes es una reconstrucción.',
     stats: [
       { label: 'Longitud', value: '30-35 m' },
       { label: 'Peso', value: '65-75 t (estimación)' },
@@ -120,6 +135,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace unos 166 millones de años',
     zoneId: 'rocosa',
     accent: '#d7a36b',
+    lengthM: 6,
+    heightM: 2.4,
+    voice: 'boom',
+    soundFact:
+      'Como otros terópodos grandes, quizá emitía retumbos graves con la boca cerrada, al estilo de avestruces y cocodrilos. Reconstrucción.',
     stats: [
       { label: 'Longitud', value: '~6 m' },
       { label: 'Peso', value: '~0,7-1 t (estimación)' },
@@ -154,6 +174,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace 68-66 millones de años',
     zoneId: 'rocosa',
     accent: '#f36b3f',
+    lengthM: 12.3,
+    heightM: 4.6,
+    voice: 'boom',
+    soundFact:
+      'Seguramente no rugía como en el cine. Por sus parientes vivos (aves y cocodrilos), se cree que emitía retumbos muy graves con la boca cerrada, que se notarían más en el pecho que en el oído.',
     stats: [
       { label: 'Longitud', value: '~12-13 m' },
       { label: 'Altura a la cadera', value: '~3,7-4 m' },
@@ -188,6 +213,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace 154-150 millones de años',
     zoneId: 'laguna',
     accent: '#8fd7e8',
+    lengthM: 20,
+    heightM: 13,
+    voice: 'bellow',
+    soundFact:
+      'Con ese cuello tan largo, su voz pudo ser un bramido grave y profundo. Nadie lo sabe con certeza: es una reconstrucción.',
     stats: [
       { label: 'Altura', value: '~12-13 m (a la cabeza)' },
       { label: 'Longitud', value: '18-22 m' },
@@ -222,6 +252,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace 99-93 millones de años',
     zoneId: 'laguna',
     accent: '#ff9f7a',
+    lengthM: 14,
+    heightM: 5,
+    voice: 'croc',
+    soundFact:
+      'Por su estilo de vida parecido al de los cocodrilos, se imagina con gruñidos graves y vibrantes como los de un cocodrilo. Reconstrucción.',
     stats: [
       { label: 'Longitud', value: '~14-15 m' },
       { label: 'Peso', value: '~6-7,5 t (estimación)' },
@@ -256,6 +291,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace 130-125 millones de años',
     zoneId: 'laguna',
     accent: '#b7c7ff',
+    lengthM: 8.5,
+    heightM: 2.8,
+    voice: 'croc',
+    soundFact:
+      'Como su pariente Spinosaurus, se reconstruye con gruñidos de cocodrilo. Ningún sonido de dinosaurio se ha conservado.',
     stats: [
       { label: 'Longitud', value: '~7,5-10 m' },
       { label: 'Peso', value: '~1,2-1,7 t (estimación)' },
@@ -289,6 +329,11 @@ export const dinos: DinoData[] = [
     yearsAgo: 'hace unos 243-240 millones de años',
     zoneId: 'laguna',
     accent: '#6fe0d0',
+    lengthM: 3.2,
+    heightM: 0.6,
+    voice: 'splash',
+    soundFact:
+      'Los reptiles marinos probablemente eran bastante silenciosos: lo que oyes es su chapoteo al salir a respirar.',
     stats: [
       { label: 'Longitud', value: '~3 m' },
       { label: 'Dieta', value: 'Peces' },

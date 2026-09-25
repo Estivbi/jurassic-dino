@@ -1,11 +1,29 @@
 import { useState } from 'react'
 import type { DinoData } from '@ride-types/ride'
+import { JEEP_LENGTH } from '@scene/constants'
 
 interface Props {
   dino: DinoData
   quizResult: boolean | undefined
   onAnswer: (dinoId: string, correct: boolean) => void
   onClose: () => void
+  /** Solo se pasa si el sonido está activado. */
+  onPlayCall?: () => void
+}
+
+const meters = (value: number) => value.toLocaleString('es-ES', { maximumFractionDigits: 1 })
+
+/** Tamaño real contado en jeeps: la forma más fácil de imaginarlo desde el asiento. */
+function SizeComparison({ dino }: { dino: DinoData }) {
+  const jeeps = dino.lengthM / JEEP_LENGTH
+  const jeepText =
+    jeeps < 1 ? `la mitad de largo que el jeep` : `≈ ${jeeps.toLocaleString('es-ES', { maximumFractionDigits: 1 })} jeeps en fila`
+  return (
+    <p className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-sm">
+      <span aria-hidden>📏 </span>
+      Tamaño real: <strong>{meters(dino.lengthM)} m</strong> de largo y <strong>{meters(dino.heightM)} m</strong> de alto ({jeepText}).
+    </p>
+  )
 }
 
 function Quiz({ dino, quizResult, onAnswer }: Pick<Props, 'dino' | 'quizResult' | 'onAnswer'>) {
@@ -52,7 +70,7 @@ function Quiz({ dino, quizResult, onAnswer }: Pick<Props, 'dino' | 'quizResult' 
   )
 }
 
-export function DinoCard({ dino, quizResult, onAnswer, onClose }: Props) {
+export function DinoCard({ dino, quizResult, onAnswer, onClose, onPlayCall }: Props) {
   return (
     <div
       className="pointer-events-auto mx-auto w-full max-w-xl overflow-y-auto rounded-t-3xl border-t-2 bg-[#0c2a1cee] px-5 pb-4 pt-4 shadow-2xl backdrop-blur-md sm:rounded-3xl sm:border-2 sm:px-6 sm:pb-6"
@@ -83,6 +101,8 @@ export function DinoCard({ dino, quizResult, onAnswer, onClose }: Props) {
           ✕
         </button>
       </div>
+
+      <SizeComparison dino={dino} />
 
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm sm:grid-cols-3">
         {dino.stats.map((stat) => (
@@ -117,6 +137,23 @@ export function DinoCard({ dino, quizResult, onAnswer, onClose }: Props) {
           </li>
         ))}
       </ul>
+
+      <div className="mt-3 flex items-start gap-3 rounded-xl bg-black/25 p-3 text-sm">
+        {onPlayCall && (
+          <button
+            type="button"
+            onClick={onPlayCall}
+            className="shrink-0 rounded-full border px-3 py-1 text-xs font-semibold active:scale-95"
+            style={{ borderColor: dino.accent, color: dino.accent }}
+          >
+            🔊 Escuchar
+          </button>
+        )}
+        <p className="text-[var(--cream)]/85">
+          <span className="font-semibold">¿Cómo sonaba? </span>
+          {dino.soundFact}
+        </p>
+      </div>
 
       <Quiz key={dino.id} dino={dino} quizResult={quizResult} onAnswer={onAnswer} />
     </div>

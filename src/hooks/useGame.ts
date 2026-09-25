@@ -30,6 +30,19 @@ export interface GameApi {
   getConstellationLabels: () => ConstellationLabel[]
   setHourOffset: (hours: number) => void
   setConstellationsOn: (on: boolean) => void
+  soundOn: boolean
+  toggleSound: () => void
+  playDinoCall: (id: string) => void
+}
+
+const SOUND_KEY = 'parque-sonido'
+
+function readSoundPreference(): boolean {
+  try {
+    return window.localStorage.getItem(SOUND_KEY) !== 'off'
+  } catch {
+    return true
+  }
 }
 
 export function useGame(): GameApi {
@@ -42,6 +55,7 @@ export function useGame(): GameApi {
   const lastNearbyRef = useRef<string | null>(null)
   const lastZoneRef = useRef<ZoneId | null>(null)
   const locationRequestedRef = useRef(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
 
   const [phase, setPhase] = useState<GamePhase>('gate')
   const [nearbyDinoId, setNearbyDinoId] = useState<string | null>(null)
@@ -51,6 +65,8 @@ export function useGame(): GameApi {
   const [zoneId, setZoneId] = useState<ZoneId | null>(null)
   const [skyInfo, setSkyInfo] = useState<SkyInfo | null>(null)
   const [constellationsOn, setConstellationsOnState] = useState(false)
+  const [soundOn, setSoundOn] = useState(readSoundPreference)
+  const soundOnRef = useRef(soundOn)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -63,6 +79,7 @@ export function useGame(): GameApi {
       const scene = new GameScene(canvasRef.current, dinos, detectQuality(), !isQualityForced())
       sceneRef.current = scene
       if (locationRequestedRef.current) scene.requestLocation()
+      if (audioCtxRef.current) scene.attachAudio(audioCtxRef.current, !soundOnRef.current)
       detachKeyboard = attachKeyboardControls(inputRef.current)
       if (import.meta.env.DEV) (window as unknown as { __gameScene?: GameScene }).__gameScene = scene
 
@@ -93,6 +110,7 @@ export function useGame(): GameApi {
       detachKeyboard?.()
       sceneRef.current?.dispose()
       sceneRef.current = null
+      audioCtxRef.current = null
     }
   }, [])
 
@@ -100,6 +118,16 @@ export function useGame(): GameApi {
     // La ubicación se pide aquí, con el toque del usuario, y no al abrir la página.
     locationRequestedRef.current = true
     sceneRef.current?.requestLocation()
+    // El audio solo puede arrancar tras un gesto del usuario: este clic.
+    if (!audioCtxRef.current) {
+      const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (AudioCtor) {
+        const ctx = new AudioCtor()
+        void ctx.resume()
+        audioCtxRef.current = ctx
+        sceneRef.current?.attachAudio(ctx, !soundOnRef.current)
+      }
+    }
     phaseRef.current = 'driving'
     setPhase('driving')
   }, [])
@@ -150,6 +178,24 @@ export function useGame(): GameApi {
     setConstellationsOnState(on)
   }, [])
 
+  const toggleSound = useCallback(() => {
+    const next = !soundOnRef.current
+    soundOnRef.current = next
+    setSoundOn(next)
+    sceneRef.current?.setMuted(!next)
+    if (next) void audioCtxRef.current?.resume()
+    try {
+      window.localStorage.setItem(SOUND_KEY, next ? 'on' : 'off')
+    } catch {
+      /* sin almacenamiento: la preferencia dura solo esta visita */
+    }
+  }, [])
+
+  const playDinoCall = useCallback((id: string) => {
+    void audioCtxRef.current?.resume()
+    sceneRef.current?.playDinoCall(id)
+  }, [])
+
   const nearbyDino = nearbyDinoId ? (dinos.find((d) => d.id === nearbyDinoId) ?? null) : null
   const cardDino = cardOpenId ? (dinos.find((d) => d.id === cardOpenId) ?? null) : null
 
@@ -174,5 +220,8 @@ export function useGame(): GameApi {
     getConstellationLabels,
     setHourOffset,
     setConstellationsOn,
+    soundOn,
+    toggleSound,
+    playDinoCall,
   }
 }
