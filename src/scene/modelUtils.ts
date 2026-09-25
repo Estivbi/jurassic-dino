@@ -73,3 +73,35 @@ export function seededRandom(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
+
+function disposeTexture(texture: THREE.Texture): void {
+  // Las texturas de un render target (el reflejo del agua, p. ej.) solo se liberan con él.
+  const target = (texture as THREE.Texture & { renderTarget?: THREE.RenderTarget | null }).renderTarget
+  if (target) target.dispose()
+  else texture.dispose()
+}
+
+function disposeMaterial(material: THREE.Material): void {
+  for (const value of Object.values(material)) {
+    if (value instanceof THREE.Texture) disposeTexture(value)
+  }
+  if (material instanceof THREE.ShaderMaterial) {
+    for (const uniform of Object.values(material.uniforms)) {
+      if (uniform.value instanceof THREE.Texture) disposeTexture(uniform.value)
+    }
+  }
+  material.dispose()
+}
+
+/** Libera en la GPU geometrías, materiales, texturas y render targets de todo un subárbol. */
+export function disposeObject(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    const renderable = obj as THREE.Object3D & { geometry?: THREE.BufferGeometry; material?: THREE.Material | THREE.Material[] }
+    renderable.geometry?.dispose()
+    if (renderable.material) {
+      const materials = Array.isArray(renderable.material) ? renderable.material : [renderable.material]
+      materials.forEach(disposeMaterial)
+    }
+    if (obj instanceof THREE.Mesh && obj.customDepthMaterial) disposeMaterial(obj.customDepthMaterial)
+  })
+}

@@ -58,6 +58,10 @@ export interface DinoInstance {
   /** Radio aproximado del cuerpo en el plano XZ (para que el jeep no lo atraviese). */
   radius: number
   swims: boolean
+  /** El modelo ya se ve: hasta entonces no se ofrece su ficha. */
+  loaded: boolean
+  /** El modelo no se pudo cargar: el ejemplar se oculta del todo (mapa y fichas incluidos). */
+  failed: boolean
   update: (dt: number, elapsed: number) => void
 }
 
@@ -395,21 +399,16 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale:
       let animate: ((dt: number, elapsed: number, stride: number, phase: number, look: number) => void) | null = null
       let strideLength = 2
 
-      loadSpecies(dino.id, config).then((species) => {
-        const spawned = species.spawn()
-        group.add(spawned.object)
-        animate = spawned.animate
-        strideLength = species.strideLength
-      })
-
       const toTarget = new THREE.Vector2()
-      instances.push({
+      const instance: DinoInstance = {
         id: dino.id,
         index: i,
         group,
         proximity: config.proximity,
         radius: config.length * 0.22,
         swims: config.habitat === 'water',
+        loaded: false,
+        failed: false,
         update: (dt, elapsed) => {
           let moving = false
           if (config.habitat === 'water') {
@@ -488,7 +487,24 @@ export function buildDinosaurs(scene: THREE.Scene, dinos: DinoData[], herdScale:
           group.rotation.set(pitch, heading, 0)
           animate?.(dt, elapsed, stride, phase, look)
         },
-      })
+      }
+      instances.push(instance)
+
+      loadSpecies(dino.id, config)
+        .then((species) => {
+          const spawned = species.spawn()
+          group.add(spawned.object)
+          animate = spawned.animate
+          strideLength = species.strideLength
+          instance.loaded = true
+        })
+        .catch(() => {
+          // El error ya se ha registrado en loadSpecies; aquí solo se retira el ejemplar.
+          instance.failed = true
+          group.visible = false
+          const bodyIndex = bodies.indexOf(body)
+          if (bodyIndex >= 0) bodies.splice(bodyIndex, 1)
+        })
     }
   })
 

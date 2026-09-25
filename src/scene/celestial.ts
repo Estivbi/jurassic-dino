@@ -116,6 +116,11 @@ export interface CelestialClock {
   /** Desplaza la hora mostrada (en horas) respecto a la real; 0 vuelve a "ahora". */
   setHourOffset: (hours: number) => void
   getHourOffset: () => number
+  /**
+   * Pide la ubicación al navegador. Se llama desde un gesto del usuario (el botón de arrancar),
+   * que es cuando los navegadores esperan ver el aviso de permiso.
+   */
+  requestLocation: () => void
 }
 
 /**
@@ -128,8 +133,11 @@ export function createCelestialClock(): CelestialClock {
   let source: LocationSource = 'aproximada'
   let hourOffset = 0
   let cached: { at: number; state: CelestialState } | null = null
+  let requested = false
 
-  if (typeof navigator !== 'undefined' && navigator.geolocation) {
+  const requestLocation = () => {
+    if (requested || typeof navigator === 'undefined' || !navigator.geolocation) return
+    requested = true
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         coords = { lat: pos.coords.latitude, lon: pos.coords.longitude }
@@ -142,6 +150,16 @@ export function createCelestialClock(): CelestialClock {
       { enableHighAccuracy: false, timeout: 4000, maximumAge: 3_600_000 },
     )
   }
+
+  // Si el permiso ya se concedió en otra visita, se usa desde el principio sin preguntar.
+  navigator.permissions
+    ?.query({ name: 'geolocation' })
+    .then((status) => {
+      if (status.state === 'granted') requestLocation()
+    })
+    .catch(() => {
+      /* navegadores sin Permissions API: se pedirá al arrancar */
+    })
 
   return {
     getState: () => {
@@ -157,5 +175,6 @@ export function createCelestialClock(): CelestialClock {
       cached = null
     },
     getHourOffset: () => hourOffset,
+    requestLocation,
   }
 }

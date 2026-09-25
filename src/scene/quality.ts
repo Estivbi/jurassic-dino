@@ -20,11 +20,22 @@ export interface QualitySettings {
   herdScale: number
 }
 
-export function detectQuality(): QualityLevel {
-  // Permite forzarla desde la URL (?calidad=baja / ?calidad=alta), útil en equipos justos.
+function forcedQuality(): QualityLevel | null {
   const forced = new URLSearchParams(window.location.search).get('calidad')
   if (forced === 'baja') return 'low'
   if (forced === 'alta') return 'high'
+  return null
+}
+
+/** Si la calidad se ha forzado desde la URL, no se toca aunque vaya lenta. */
+export function isQualityForced(): boolean {
+  return forcedQuality() !== null
+}
+
+export function detectQuality(): QualityLevel {
+  // Permite forzarla desde la URL (?calidad=baja / ?calidad=alta), útil en equipos justos.
+  const forced = forcedQuality()
+  if (forced) return forced
   const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches
   const smallScreen = window.innerWidth < 820
   const lowMemory = 'deviceMemory' in navigator && (navigator as unknown as { deviceMemory: number }).deviceMemory <= 4

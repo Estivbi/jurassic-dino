@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { dinos } from '@data/dinos'
-import { detectQuality } from '@scene/quality'
+import { detectQuality, isQualityForced } from '@scene/quality'
 import { createInputState, attachKeyboardControls, type InputState } from '@scene/input'
 import type { GameScene, MinimapSnapshot, SkyInfo } from '@scene/GameScene'
 import type { ConstellationLabel } from '@scene/sky'
@@ -41,6 +41,7 @@ export function useGame(): GameApi {
   const cardOpenIdRef = useRef<string | null>(null)
   const lastNearbyRef = useRef<string | null>(null)
   const lastZoneRef = useRef<ZoneId | null>(null)
+  const locationRequestedRef = useRef(false)
 
   const [phase, setPhase] = useState<GamePhase>('gate')
   const [nearbyDinoId, setNearbyDinoId] = useState<string | null>(null)
@@ -59,8 +60,9 @@ export function useGame(): GameApi {
 
     import('@scene/GameScene').then(({ GameScene }) => {
       if (cancelled || !canvasRef.current) return
-      const scene = new GameScene(canvasRef.current, dinos, detectQuality())
+      const scene = new GameScene(canvasRef.current, dinos, detectQuality(), !isQualityForced())
       sceneRef.current = scene
+      if (locationRequestedRef.current) scene.requestLocation()
       detachKeyboard = attachKeyboardControls(inputRef.current)
       if (import.meta.env.DEV) (window as unknown as { __gameScene?: GameScene }).__gameScene = scene
 
@@ -95,6 +97,9 @@ export function useGame(): GameApi {
   }, [])
 
   const start = useCallback(() => {
+    // La ubicación se pide aquí, con el toque del usuario, y no al abrir la página.
+    locationRequestedRef.current = true
+    sceneRef.current?.requestLocation()
     phaseRef.current = 'driving'
     setPhase('driving')
   }, [])

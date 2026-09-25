@@ -215,18 +215,22 @@ function buildMoon(uniforms: Record<string, THREE.IUniform>): THREE.Mesh {
       varying vec2 vUv;
       varying vec3 vNormalWorld;
       void main() {
-        vec3 albedo = texture2D(uMap, vUv).rgb;
+        // Más contraste para que los mares lunares se distingan de las tierras altas.
+        vec3 albedo = pow(texture2D(uMap, vUv).rgb, vec3(1.7)) * 1.8;
         // La fase sale sola: el hemisferio lunar iluminado es el que mira al Sol real.
         float lit = smoothstep(-0.03, 0.12, dot(normalize(vNormalWorld), uSunDir));
         float earthshine = 0.035;
-        vec3 col = albedo * (lit * 1.1 + earthshine) * uMoonDaylight;
-        gl_FragColor = vec4(col, 1.0);
+        vec3 col = albedo * (lit * 0.8 + earthshine);
+        // La parte iluminada tapa el cielo; la cara oscura deja verlo (con un leve brillo
+        // de la Tierra). De día la Luna se ve pálida, medio fundida con el azul.
+        float alpha = max(lit, 0.05) * uMoonDaylight;
+        gl_FragColor = vec4(col, alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }
     `,
     transparent: true,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.NormalBlending,
     depthWrite: false,
     fog: false,
   })

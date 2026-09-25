@@ -10,9 +10,14 @@ import { WORLD_BOUNDS } from './constants'
 import { zoneWeights } from './zones'
 import { createCelestialClock, type CelestialClock, type LocationSource } from './celestial'
 import { SkySystem, type ConstellationLabel } from './sky'
+import { disposeObject } from './modelUtils'
 import { buildLake, type Lake } from './water'
 
 const JEEP_RADIUS = 1.3
+/** Por debajo de estos FPS medios se baja un escalón de calidad. */
+const MIN_FPS = 40
+/** Segundos por ventana de medición de FPS. */
+const FPS_WINDOW = 3
 
 export interface MinimapSnapshot {
   player: { x: number; z: number; heading: number }
@@ -98,16 +103,21 @@ export class GameScene {
   private debugView: { from: THREE.Vector3; to: THREE.Vector3 } | null = null
   private chaseDistance = 7
   private chaseHeight = 3.4
+  /** Calidad adaptativa: mide los FPS reales y va bajando escalones si el equipo no llega. */
+  private perf = { warmup: 4, frames: 0, time: 0, step: 0, settled: false }
+  private pixelRatio: number
 
-  constructor(canvas: HTMLCanvasElement, dinos: DinoData[], qualityLevel: QualityLevel) {
+  constructor(canvas: HTMLCanvasElement, dinos: DinoData[], qualityLevel: QualityLevel, adaptiveQuality = true) {
     this.quality = getQualitySettings(qualityLevel)
+    this.perf.settled = !adaptiveQuality
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: this.quality.antialias,
       powerPreference: 'high-performance',
     })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality.pixelRatioCap))
+    this.pixelRatio = Math.min(window.devicePixelRatio, this.quality.pixelRatioCap)
+    this.renderer.setPixelRatio(this.pixelRatio)
     this.renderer.shadowMap.enabled = this.quality.shadows
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -150,7 +160,7 @@ export class GameScene {
     const resolved = this.resolveObstacles(x, z, JEEP_RADIUS)
     // Tampoco se atraviesa a los dinosaurios.
     for (const dino of this.dinoInstances) {
-      if (dino.swims) continue
+      if (dino.swims || dino.failed) continue
       const dx = resolved.x - dino.group.position.x
       const dz = resolved.z - dino.group.position.z
       const minDist = dino.radius + JEEP_RADIUS
@@ -237,7 +247,9 @@ export class GameScene {
   getMinimapSnapshot(): MinimapSnapshot {
     return {
       player: { x: this.vehicle.position.x, z: this.vehicle.position.z, heading: this.vehicle.heading },
-      dinos: this.dinoInstances.map((dino) => ({
+      dinos: this.dinoInstances
+        .filter((dino) => !dino.failed)
+        .map((dino) => ({
         id: dino.id,
         x: dino.group.position.x,
         z: dino.group.position.z,
@@ -280,9 +292,79 @@ export class GameScene {
     return this.sky.getConstellationLabels(this.camera)
   }
 
+  /** Pide la ubicación real para el cielo; se llama al pulsar "Arrancar". */
+  requestLocation(): void {
+    this.clock.requestLocation()
+  }
+
+  /** Escalón de calidad adaptativa aplicado (0 = ninguno). Expuesto para depuración. */
+  getQualityStep(): number {
+    return this.perf.step
+  }
+
+  private adaptQuality(rawDt: number): void {
+    const perf = this.perf
+    if (perf.settled) return
+    // Se ignoran los primeros segundos (compilación de shaders, carga de modelos) y los saltos
+    // de pestaña en segundo plano.
+    if (perf.warmup > 0) {
+      perf.warmup -= rawDt
+      return
+    }
+    if (rawDt > 0.5) return
+    perf.frames++
+    perf.time += rawDt
+    if (perf.time < FPS_WINDOW) return
+    const fps = perf.frames / perf.time
+    perf.frames = 0
+    perf.time = 0
+    if (fps >= MIN_FPS) {
+      perf.settled = true
+      return
+    }
+    perf.step++
+    if (perf.step === 1) {
+      // 1) Menos píxeles: lo que más cuesta en pantallas de alta densidad.
+      this.pixelRatio = Math.min(this.pixelRatio, 1)
+      this.renderer.setPixelRatio(this.pixelRatio)
+      this.resize()
+    } else if (perf.step === 2) {
+      // 2) Sin sombras y con agua sin reflejo (que obliga a renderizar la escena dos veces).
+      this.renderer.shadowMap.enabled = false
+      this.lighting.key.castShadow = false
+      this.scene.traverse((obj) => {
+        const mat = (obj as THREE.Mesh).material
+        if (mat) (Array.isArray(mat) ? mat : [mat]).forEach((m) => (m.needsUpdate = true))
+      })
+      if (this.quality.reflectiveWater) {
+        this.scene.remove(this.lake.mesh)
+        disposeObject(this.lake.mesh)
+        this.lake = buildLake(this.scene, false)
+        this.scene.add(this.lake.mesh)
+        this.quality = { ...this.quality, reflectiveWater: false }
+      }
+      this.warmupAgain()
+    } else {
+      // 3) Menos resolución y menos distancia de dibujado; es el último escalón.
+      this.pixelRatio = Math.min(this.pixelRatio, 0.75)
+      this.renderer.setPixelRatio(this.pixelRatio)
+      this.quality = { ...this.quality, fogFar: this.quality.fogFar * 0.7 }
+      this.camera.far = this.quality.fogFar * 1.7
+      this.resize()
+      perf.settled = true
+    }
+  }
+
+  /** Tras un cambio que recompila shaders, se espera un poco antes de volver a medir. */
+  private warmupAgain(): void {
+    this.perf.warmup = 2
+  }
+
   update(input: VehicleInput): void {
     this.timer.update()
-    const dt = Math.min(this.timer.getDelta(), 0.1)
+    const rawDt = this.timer.getDelta()
+    const dt = Math.min(rawDt, 0.1)
+    this.adaptQuality(rawDt)
     const elapsed = this.timer.getElapsed()
 
     this.vehicle.update(input, dt, this.vehicleWorld)
@@ -317,14 +399,18 @@ export class GameScene {
     this.lake.update(dt, this.tmpSunDir, this.lighting.key.color, this.atmosphere.daylight)
     this.vegetation.update(elapsed)
 
+    // Entre los animales que están a tiro, gana el que tiene el cuerpo más cerca del jeep
+    // (distancia al centro menos su radio): un gigante no "tapa" al que tienes al lado.
     let closestId: string | null = null
-    let closestScore = 1
+    let closestSurface = Infinity
     for (const dino of this.dinoInstances) {
       dino.update(dt, elapsed)
+      if (!dino.loaded) continue
       const dist = dino.group.position.distanceTo(this.vehicle.position)
-      const score = dist / dino.proximity
-      if (score < closestScore) {
-        closestScore = score
+      if (dist > dino.proximity) continue
+      const surface = dist - dino.radius
+      if (surface < closestSurface) {
+        closestSurface = surface
         closestId = dino.id
       }
     }
@@ -361,13 +447,7 @@ export class GameScene {
   dispose(): void {
     this.stopLoop()
     this.sky.dispose()
-    this.scene.traverse((obj) => {
-      if (obj instanceof THREE.Mesh || obj instanceof THREE.InstancedMesh || obj instanceof THREE.Points) {
-        obj.geometry.dispose()
-        const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
-        mats.forEach((m) => m.dispose())
-      }
-    })
+    disposeObject(this.scene)
     this.renderer.dispose()
   }
 }
