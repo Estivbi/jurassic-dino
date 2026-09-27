@@ -326,6 +326,8 @@ export class Vehicle {
   private bodyPitch = new Spring(55, 9)
   private bodyRoll = new Spring(55, 9)
   private lastForwardAccel = 0
+  /** Fuerza (m/s) del último golpe pendiente de sonar; 0 si no hay. */
+  private pendingImpact = 0
   private tmpForward = new THREE.Vector2()
   private tmpLeft = new THREE.Vector2()
 
@@ -335,6 +337,13 @@ export class Vehicle {
     this.heading = startHeading
     this.model.group.position.copy(this.position)
     this.model.group.rotation.y = this.heading
+  }
+
+  /** Devuelve (y olvida) el golpe más fuerte desde la última llamada, para el sonido. */
+  consumeImpact(): number {
+    const impact = this.pendingImpact
+    this.pendingImpact = 0
+    return impact
   }
 
   /** Velocidad hacia delante (negativa marcha atrás), en m/s. */
@@ -427,6 +436,7 @@ export class Vehicle {
         this.velocity.y -= (1 + RESTITUTION) * vn * nz
         // El golpe sacude la carrocería.
         const impact = Math.min(-vn, 12)
+        if (impact > 1) this.pendingImpact = Math.max(this.pendingImpact, impact)
         this.bodyPitch.velocity += impact * 0.35 * (nx * forward.x + nz * forward.y)
         this.bodyRoll.velocity += impact * 0.35 * (nx * left.x + nz * left.y)
         this.yawRate *= 0.5
@@ -445,6 +455,7 @@ export class Vehicle {
       if (!this.onGround && this.verticalSpeed < -2.5) {
         // Aterrizaje: la suspensión se comprime según la velocidad de caída.
         this.suspension.velocity += this.verticalSpeed * 0.6
+        this.pendingImpact = Math.max(this.pendingImpact, -this.verticalSpeed * 0.6)
         this.velocity.multiplyScalar(0.93)
       }
       this.position.y = groundY

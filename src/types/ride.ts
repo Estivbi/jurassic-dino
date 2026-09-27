@@ -15,9 +15,6 @@ export interface DinoQuiz {
   explanation: string
 }
 
-/** Tipo de voz procedural (reconstrucción): ninguna voz de dinosaurio se ha conservado. */
-export type DinoVoice = 'boom' | 'bellow' | 'croc' | 'chirp' | 'grunt' | 'splash'
-
 export interface DinoData {
   id: string
   name: string
@@ -34,7 +31,6 @@ export interface DinoData {
   lengthM: number
   /** Altura real hasta lo más alto de la cabeza (o la vela) en postura normal, en metros. */
   heightM: number
-  voice: DinoVoice
   /** Qué se sabe (o se supone) de cómo sonaba. */
   soundFact: string
   stats: DinoStat[]

@@ -28,7 +28,6 @@ type Props = Pick<
   | 'getConstellationLabels'
   | 'soundOn'
   | 'toggleSound'
-  | 'playDinoCall'
 > & { onShowCredits: () => void }
 
 export function HUD(props: Props) {
@@ -87,7 +86,6 @@ export function HUD(props: Props) {
                 quizResult={quizResults.get(cardDino.id)}
                 onAnswer={answerQuiz}
                 onClose={closeCard}
-                onPlayCall={props.soundOn ? () => props.playDinoCall(cardDino.id) : undefined}
               />
             </motion.div>
           ) : (

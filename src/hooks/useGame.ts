@@ -32,7 +32,6 @@ export interface GameApi {
   setConstellationsOn: (on: boolean) => void
   soundOn: boolean
   toggleSound: () => void
-  playDinoCall: (id: string) => void
 }
 
 const SOUND_KEY = 'parque-sonido'
@@ -191,11 +190,6 @@ export function useGame(): GameApi {
     }
   }, [])
 
-  const playDinoCall = useCallback((id: string) => {
-    void audioCtxRef.current?.resume()
-    sceneRef.current?.playDinoCall(id)
-  }, [])
-
   const nearbyDino = nearbyDinoId ? (dinos.find((d) => d.id === nearbyDinoId) ?? null) : null
   const cardDino = cardOpenId ? (dinos.find((d) => d.id === cardOpenId) ?? null) : null
 
@@ -222,6 +216,5 @@ export function useGame(): GameApi {
     setConstellationsOn,
     soundOn,
     toggleSound,
-    playDinoCall,
   }
 }

@@ -7,8 +7,6 @@ interface Props {
   quizResult: boolean | undefined
   onAnswer: (dinoId: string, correct: boolean) => void
   onClose: () => void
-  /** Solo se pasa si el sonido está activado. */
-  onPlayCall?: () => void
 }
 
 const meters = (value: number) => value.toLocaleString('es-ES', { maximumFractionDigits: 1 })
@@ -70,7 +68,7 @@ function Quiz({ dino, quizResult, onAnswer }: Pick<Props, 'dino' | 'quizResult' 
   )
 }
 
-export function DinoCard({ dino, quizResult, onAnswer, onClose, onPlayCall }: Props) {
+export function DinoCard({ dino, quizResult, onAnswer, onClose }: Props) {
   return (
     <div
       className="pointer-events-auto mx-auto w-full max-w-xl overflow-y-auto rounded-t-3xl border-t-2 bg-[#0c2a1cee] px-5 pb-4 pt-4 shadow-2xl backdrop-blur-md sm:rounded-3xl sm:border-2 sm:px-6 sm:pb-6"
@@ -138,17 +136,7 @@ export function DinoCard({ dino, quizResult, onAnswer, onClose, onPlayCall }: Pr
         ))}
       </ul>
 
-      <div className="mt-3 flex items-start gap-3 rounded-xl bg-black/25 p-3 text-sm">
-        {onPlayCall && (
-          <button
-            type="button"
-            onClick={onPlayCall}
-            className="shrink-0 rounded-full border px-3 py-1 text-xs font-semibold active:scale-95"
-            style={{ borderColor: dino.accent, color: dino.accent }}
-          >
-            🔊 Escuchar
-          </button>
-        )}
+      <div className="mt-3 rounded-xl bg-black/25 p-3 text-sm">
         <p className="text-[var(--cream)]/85">
           <span className="font-semibold">¿Cómo sonaba? </span>
           {dino.soundFact}
