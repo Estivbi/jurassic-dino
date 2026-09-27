@@ -8,8 +8,6 @@ interface Props {
   quizResult: boolean | undefined
   onAnswer: (dinoId: string, correct: boolean) => void
   onClose: () => void
-  /** Solo se pasa si el sonido está activado. */
-  onPlayCall?: () => void
 }
 
 const meters = (value: number) => value.toLocaleString('es-ES', { maximumFractionDigits: 1 })
@@ -73,7 +71,7 @@ function Quiz({ dino, quizResult, onAnswer }: Pick<Props, 'dino' | 'quizResult' 
 
 const STEPS = ['Conócelo', 'Mito o realidad', 'Curiosidades', 'Quiz'] as const
 
-export function DinoCard({ dino, quizResult, onAnswer, onClose, onPlayCall }: Props) {
+export function DinoCard({ dino, quizResult, onAnswer, onClose }: Props) {
   // La ficha se lee en pasos cortos para que quepa en la pantalla de un móvil sin desplazar.
   const [step, setStep] = useState(0)
   const [direction, setDirection] = useState(1)
@@ -198,16 +196,6 @@ export function DinoCard({ dino, quizResult, onAnswer, onClose, onPlayCall }: Pr
                     <span className="font-semibold">¿Cómo sonaba? </span>
                     {dino.soundFact}
                   </p>
-                  {onPlayCall && (
-                    <button
-                      type="button"
-                      onClick={onPlayCall}
-                      className="mt-2 rounded-full border px-3 py-1 text-xs font-semibold active:scale-95"
-                      style={{ borderColor: dino.accent, color: dino.accent }}
-                    >
-                      🔊 Escuchar
-                    </button>
-                  )}
                 </div>
               </>
             )}

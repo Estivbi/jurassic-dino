@@ -1,12 +1,12 @@
 import * as THREE from 'three'
-import type { DinoData, DinoVoice, QualityLevel, ZoneId } from '@ride-types/ride'
+import type { DinoData, QualityLevel, ZoneId } from '@ride-types/ride'
 import { getQualitySettings, type QualitySettings } from './quality'
 import { buildTerrain, heightAtPosition, isUnderwater } from './terrain'
 import { applyCelestialLighting, buildLighting, createAtmosphereState, type LightingRig } from './lighting'
 import { buildVegetation, NO_REFLECTION_LAYER, type Obstacle, type Vegetation } from './vegetation'
 import { buildDinosaurs, type DinoInstance } from './dinosaurs'
 import { Vehicle, type VehicleInput, type VehicleWorld } from './vehicle'
-import { LAKE, WORLD_BOUNDS } from './constants'
+import { WORLD_BOUNDS } from './constants'
 import { zoneWeights } from './zones'
 import { createCelestialClock, type CelestialClock, type LocationSource } from './celestial'
 import { SkySystem, type ConstellationLabel } from './sky'
@@ -106,13 +106,7 @@ export class GameScene {
   private nearbyDinoId: string | null = null
   private zoneId: ZoneId | null = null
   private audio: Soundscape | null = null
-  private voices = new Map<string, { voice: DinoVoice; size: number }>()
-  /** Momento (s de juego) en que cada ejemplar puede volver a llamar. */
-  private nextCallAt = new Map<DinoInstance, number>()
-  private lastCallById = new Map<string, number>()
-  private lastNearbyForSound: string | null = null
   private throttle = false
-  private tmpCamDir = new THREE.Vector3()
 
   private tmpDesiredCam = new THREE.Vector3()
   private tmpLookTarget = new THREE.Vector3()
@@ -159,10 +153,7 @@ export class GameScene {
     this.dinoInstances = buildDinosaurs(this.scene, dinos, this.quality.herdScale, (x, z, radius) =>
       this.resolveObstacles(x, z, radius),
     ).instances
-    for (const dino of dinos) {
-      this.dinoColors.set(dino.id, dino.accent)
-      this.voices.set(dino.id, { voice: dino.voice, size: dino.lengthM })
-    }
+    for (const dino of dinos) this.dinoColors.set(dino.id, dino.accent)
 
     const startY = heightAtPosition(0, 6)
     this.vehicle = new Vehicle(new THREE.Vector3(0, startY, 6), Math.PI)
@@ -331,56 +322,11 @@ export class GameScene {
     this.audio?.setMuted(muted)
   }
 
-  /** Reproduce la voz de la especie desde el ejemplar más cercano al jeep (botón "Escuchar"). */
-  playDinoCall(id: string): void {
+  private updateAudio(): void {
     if (!this.audio) return
-    let best: DinoInstance | null = null
-    let bestDist = Infinity
-    for (const dino of this.dinoInstances) {
-      if (dino.id !== id || !dino.loaded) continue
-      const dist = dino.group.position.distanceTo(this.vehicle.position)
-      if (dist < bestDist) {
-        bestDist = dist
-        best = dino
-      }
-    }
-    if (best) this.callFrom(best, this.timer.getElapsed())
-  }
-
-  private callFrom(dino: DinoInstance, elapsed: number): void {
-    const voice = this.voices.get(dino.id)
-    if (!this.audio || !voice) return
-    this.audio.playCall(voice.voice, dino.group.position, voice.size)
-    this.lastCallById.set(dino.id, elapsed)
-    this.nextCallAt.set(dino, elapsed + 15 + Math.random() * 25)
-  }
-
-  private updateAudio(elapsed: number): void {
-    if (!this.audio) return
-    this.camera.getWorldDirection(this.tmpCamDir)
-    const lakeDistance = Math.max(0, Math.hypot(this.vehicle.position.x - LAKE.x, this.vehicle.position.z - LAKE.z) - LAKE.radius)
-    this.audio.update(
-      { position: this.camera.position, forward: this.tmpCamDir },
-      { speed: this.vehicle.speed, throttle: this.throttle, night: this.atmosphere.night, lakeDistance },
-    )
-    // Al acercarte a un animal nuevo, te saluda.
-    if (this.nearbyDinoId && this.nearbyDinoId !== this.lastNearbyForSound) {
-      const last = this.lastCallById.get(this.nearbyDinoId) ?? -Infinity
-      if (elapsed - last > 6) this.playDinoCall(this.nearbyDinoId)
-    }
-    this.lastNearbyForSound = this.nearbyDinoId
-    // Y de vez en cuando, los que están a menos de 60 m llaman por su cuenta.
-    for (const dino of this.dinoInstances) {
-      if (!dino.loaded || dino.failed) continue
-      let next = this.nextCallAt.get(dino)
-      if (next === undefined) {
-        next = elapsed + 5 + Math.random() * 25
-        this.nextCallAt.set(dino, next)
-      }
-      if (elapsed < next) continue
-      if (dino.group.position.distanceTo(this.vehicle.position) < 60) this.callFrom(dino, elapsed)
-      else this.nextCallAt.set(dino, elapsed + 5 + Math.random() * 10)
-    }
+    this.audio.update({ speed: this.vehicle.speed, throttle: this.throttle })
+    const impact = this.vehicle.consumeImpact()
+    if (impact > 0) this.audio.impact(impact)
   }
 
   /** Datos para el panel `?debug=1`: sirven para medir el rendimiento en móviles reales. */
@@ -526,7 +472,7 @@ export class GameScene {
     }
     this.nearbyDinoId = closestId
     this.throttle = input.forward
-    this.updateAudio(elapsed)
+    this.updateAudio()
     const weights = zoneWeights(this.vehicle.position.x, this.vehicle.position.z)
     const [bestZone, bestWeight] = (Object.entries(weights) as [ZoneId, number][]).reduce((a, b) => (b[1] > a[1] ? b : a))
     // Histéresis: solo se cambia de zona cuando se está claramente dentro de otra.

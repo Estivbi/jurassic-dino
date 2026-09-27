@@ -32,7 +32,6 @@ export interface GameApi {
   setConstellationsOn: (on: boolean) => void
   soundOn: boolean
   toggleSound: () => void
-  playDinoCall: (id: string) => void
   getDebugInfo: () => DebugInfo | null
 }
 
@@ -192,11 +191,6 @@ export function useGame(): GameApi {
     }
   }, [])
 
-  const playDinoCall = useCallback((id: string) => {
-    void audioCtxRef.current?.resume()
-    sceneRef.current?.playDinoCall(id)
-  }, [])
-
   const getDebugInfo = useCallback(() => sceneRef.current?.getDebugInfo() ?? null, [])
 
   const nearbyDino = nearbyDinoId ? (dinos.find((d) => d.id === nearbyDinoId) ?? null) : null
@@ -225,7 +219,6 @@ export function useGame(): GameApi {
     setConstellationsOn,
     soundOn,
     toggleSound,
-    playDinoCall,
     getDebugInfo,
   }
 }

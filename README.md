@@ -33,10 +33,10 @@ estático.
   reales (la ficha lo compara con el jeep) y en manadas. Los que traen esqueleto animado usan su animación; el resto camina
   con un andar procedural en el vertex shader (patas, cola y cuello). Esquivan
   troncos, rocas y a los demás animales.
-- **Sonido** sintetizado en el navegador (sin archivos): voz de cada especie con audio
-  3D al acercarte (reconstrucciones basadas en aves, cocodrilos y grandes animales
-  actuales, porque ningún sonido de dinosaurio se ha conservado), motor del jeep según
-  la velocidad, viento, agua junto al lago y grillos de noche. Se puede silenciar.
+- **Sonido del jeep** sintetizado en el navegador (sin archivos): el motor cambia con la
+  velocidad y el acelerador, y los choques y aterrizajes suenan según su fuerza. Se puede
+  silenciar. Las voces de los dinosaurios se descartaron: sintetizadas no resultaban
+  creíbles.
 - **Capa educativa**: ficha de cada especie con datos contrastados, un mito
   desmontado y una pregunta tipo quiz (los aciertos suman estrellas en el
   álbum), carteles de zona sobre flora y fósiles, y curiosidades del cielo.
