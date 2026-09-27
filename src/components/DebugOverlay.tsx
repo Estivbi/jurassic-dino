@@ -27,7 +27,7 @@ export function DebugOverlay({ getDebugInfo }: Props) {
   if (!info) return null
   const fpsColor = info.fps >= 50 ? '#7ee787' : info.fps >= 30 ? '#f3b93f' : '#ff7b72'
   return (
-    <div className="pointer-events-none absolute left-3 top-[6.5rem] z-20 max-w-[calc(100vw-10rem)] sm:top-28 rounded-lg bg-black/70 px-2.5 py-1.5 font-mono text-[0.65rem] leading-snug text-[var(--cream)] sm:bottom-6">
+    <div className="pointer-events-none absolute left-3 top-[6.5rem] z-20 max-w-[calc(100vw-10rem)] sm:top-28 rounded-lg bg-black/70 px-2.5 py-1.5 font-mono text-[0.65rem] leading-snug text-[var(--cream)]">
       <p>
         <span style={{ color: fpsColor }}>{info.fps.toFixed(0)} FPS</span>
         {Number.isFinite(minFps) && <span className="text-[var(--cream)]/60"> (mín. {minFps.toFixed(0)})</span>}
