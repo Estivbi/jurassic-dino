@@ -5,6 +5,11 @@ import { CanvasStage } from '@components/CanvasStage'
 import { HUD } from '@components/HUD'
 import { GateScreen } from '@components/GateScreen'
 import { CreditsModal } from '@components/CreditsModal'
+import { DebugOverlay } from '@components/DebugOverlay'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
+
+const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1'
 
 export default function App() {
   const game = useGame()
@@ -41,6 +46,11 @@ export default function App() {
       {game.phase === 'gate' && <GateScreen onStart={game.start} onShowCredits={() => setShowCredits(true)} />}
 
       <AnimatePresence>{showCredits && <CreditsModal onClose={() => setShowCredits(false)} />}</AnimatePresence>
+
+      {DEBUG && <DebugOverlay getDebugInfo={game.getDebugInfo} />}
+      {/* Estadísticas de Vercel: sin cookies ni datos personales (hay que activarlas en el panel de Vercel). */}
+      <Analytics />
+      <SpeedInsights />
     </div>
   )
 }

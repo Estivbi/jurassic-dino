@@ -21,8 +21,9 @@ function loadNormals(): THREE.Texture {
  */
 export function buildLake(scene: THREE.Scene, highQuality: boolean): Lake {
   // Un poco más grande que la cuenca: lo que sobra queda enterrado bajo la orilla.
+  // El plano se tumba con la rotación del objeto y no horneando la rotación en la geometría:
+  // `Water` calcula el plano del espejo a partir del eje +Z local del objeto.
   const geometry = new THREE.CircleGeometry(LAKE.radius * 1.35, 64)
-  geometry.rotateX(-Math.PI / 2)
 
   if (highQuality) {
     const water = new Water(geometry, {
@@ -37,6 +38,7 @@ export function buildLake(scene: THREE.Scene, highQuality: boolean): Lake {
       alpha: 1,
     })
     water.position.set(LAKE.x, WATER_LEVEL, LAKE.z)
+    water.rotation.x = -Math.PI / 2
     water.name = 'lake'
     const uniforms = water.material.uniforms
     uniforms.size.value = 2.2
@@ -63,6 +65,7 @@ export function buildLake(scene: THREE.Scene, highQuality: boolean): Lake {
   })
   const mesh = new THREE.Mesh(geometry, material)
   mesh.position.set(LAKE.x, WATER_LEVEL, LAKE.z)
+  mesh.rotation.x = -Math.PI / 2
   mesh.name = 'lake'
   return {
     mesh,

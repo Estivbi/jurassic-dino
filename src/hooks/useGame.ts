@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { dinos } from '@data/dinos'
 import { detectQuality, isQualityForced } from '@scene/quality'
 import { createInputState, attachKeyboardControls, type InputState } from '@scene/input'
-import type { GameScene, MinimapSnapshot, SkyInfo } from '@scene/GameScene'
+import type { DebugInfo, GameScene, MinimapSnapshot, SkyInfo } from '@scene/GameScene'
 import type { ConstellationLabel } from '@scene/sky'
 import type { GamePhase, ZoneId } from '@ride-types/ride'
 
@@ -33,6 +33,7 @@ export interface GameApi {
   soundOn: boolean
   toggleSound: () => void
   playDinoCall: (id: string) => void
+  getDebugInfo: () => DebugInfo | null
 }
 
 const SOUND_KEY = 'parque-sonido'
@@ -196,6 +197,8 @@ export function useGame(): GameApi {
     sceneRef.current?.playDinoCall(id)
   }, [])
 
+  const getDebugInfo = useCallback(() => sceneRef.current?.getDebugInfo() ?? null, [])
+
   const nearbyDino = nearbyDinoId ? (dinos.find((d) => d.id === nearbyDinoId) ?? null) : null
   const cardDino = cardOpenId ? (dinos.find((d) => d.id === cardOpenId) ?? null) : null
 
@@ -223,5 +226,6 @@ export function useGame(): GameApi {
     soundOn,
     toggleSound,
     playDinoCall,
+    getDebugInfo,
   }
 }
