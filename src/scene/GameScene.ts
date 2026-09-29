@@ -11,6 +11,7 @@ import { zoneWeights } from './zones'
 import { createCelestialClock, type CelestialClock, type LocationSource } from './celestial'
 import { SkySystem, type ConstellationLabel } from './sky'
 import { disposeObject } from './modelUtils'
+import { Soundscape } from './audio'
 import { buildLake, type Lake } from './water'
 
 const JEEP_RADIUS = 1.3
@@ -94,6 +95,8 @@ export class GameScene {
   private timer = new THREE.Timer()
   private nearbyDinoId: string | null = null
   private zoneId: ZoneId | null = null
+  private audio: Soundscape | null = null
+  private throttle = false
 
   private tmpDesiredCam = new THREE.Vector3()
   private tmpLookTarget = new THREE.Vector3()
@@ -297,6 +300,24 @@ export class GameScene {
     this.clock.requestLocation()
   }
 
+  /** Conecta el sonido; el AudioContext se crea con el gesto del usuario (botón de arrancar). */
+  attachAudio(ctx: AudioContext, muted: boolean): void {
+    if (this.audio) return
+    this.audio = new Soundscape(ctx)
+    this.audio.setMuted(muted)
+  }
+
+  setMuted(muted: boolean): void {
+    this.audio?.setMuted(muted)
+  }
+
+  private updateAudio(): void {
+    if (!this.audio) return
+    this.audio.update({ speed: this.vehicle.speed, throttle: this.throttle })
+    const impact = this.vehicle.consumeImpact()
+    if (impact > 0) this.audio.impact(impact)
+  }
+
   /** Escalón de calidad adaptativa aplicado (0 = ninguno). Expuesto para depuración. */
   getQualityStep(): number {
     return this.perf.step
@@ -415,6 +436,8 @@ export class GameScene {
       }
     }
     this.nearbyDinoId = closestId
+    this.throttle = input.forward
+    this.updateAudio()
     const weights = zoneWeights(this.vehicle.position.x, this.vehicle.position.z)
     const [bestZone, bestWeight] = (Object.entries(weights) as [ZoneId, number][]).reduce((a, b) => (b[1] > a[1] ? b : a))
     // Histéresis: solo se cambia de zona cuando se está claramente dentro de otra.
@@ -447,6 +470,7 @@ export class GameScene {
   dispose(): void {
     this.stopLoop()
     this.sky.dispose()
+    this.audio?.dispose()
     disposeObject(this.scene)
     this.renderer.dispose()
   }

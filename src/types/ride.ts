@@ -27,6 +27,12 @@ export interface DinoData {
   yearsAgo: string
   zoneId: ZoneId
   accent: string
+  /** Longitud real de hocico a cola, en metros (el modelo 3D se escala a esto). */
+  lengthM: number
+  /** Altura real hasta lo más alto de la cabeza (o la vela) en postura normal, en metros. */
+  heightM: number
+  /** Qué se sabe (o se supone) de cómo sonaba. */
+  soundFact: string
   stats: DinoStat[]
   funFacts: string[]
   mythTitle: string

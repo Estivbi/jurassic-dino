@@ -1,11 +1,27 @@
 import { useState } from 'react'
 import type { DinoData } from '@ride-types/ride'
+import { JEEP_LENGTH } from '@scene/constants'
 
 interface Props {
   dino: DinoData
   quizResult: boolean | undefined
   onAnswer: (dinoId: string, correct: boolean) => void
   onClose: () => void
+}
+
+const meters = (value: number) => value.toLocaleString('es-ES', { maximumFractionDigits: 1 })
+
+/** Tamaño real contado en jeeps: la forma más fácil de imaginarlo desde el asiento. */
+function SizeComparison({ dino }: { dino: DinoData }) {
+  const jeeps = dino.lengthM / JEEP_LENGTH
+  const jeepText =
+    jeeps < 1 ? `la mitad de largo que el jeep` : `≈ ${jeeps.toLocaleString('es-ES', { maximumFractionDigits: 1 })} jeeps en fila`
+  return (
+    <p className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-sm">
+      <span aria-hidden>📏 </span>
+      Tamaño real: <strong>{meters(dino.lengthM)} m</strong> de largo y <strong>{meters(dino.heightM)} m</strong> de alto ({jeepText}).
+    </p>
+  )
 }
 
 function Quiz({ dino, quizResult, onAnswer }: Pick<Props, 'dino' | 'quizResult' | 'onAnswer'>) {
@@ -84,6 +100,8 @@ export function DinoCard({ dino, quizResult, onAnswer, onClose }: Props) {
         </button>
       </div>
 
+      <SizeComparison dino={dino} />
+
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm sm:grid-cols-3">
         {dino.stats.map((stat) => (
           <div key={stat.label}>
@@ -117,6 +135,13 @@ export function DinoCard({ dino, quizResult, onAnswer, onClose }: Props) {
           </li>
         ))}
       </ul>
+
+      <div className="mt-3 rounded-xl bg-black/25 p-3 text-sm">
+        <p className="text-[var(--cream)]/85">
+          <span className="font-semibold">¿Cómo sonaba? </span>
+          {dino.soundFact}
+        </p>
+      </div>
 
       <Quiz key={dino.id} dino={dino} quizResult={quizResult} onAnswer={onAnswer} />
     </div>
