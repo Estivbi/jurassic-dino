@@ -39,6 +39,16 @@ export interface SkyInfo {
   lon: number
 }
 
+export interface DebugInfo {
+  fps: number
+  quality: string
+  qualityStep: number
+  pixelRatio: number
+  drawCalls: number
+  triangles: number
+  gpu: string
+}
+
 export interface FrameInfo {
   nearbyDinoId: string | null
   /** Zona en la que está claramente el jeep (null en el cruce central, junto a la entrada). */
@@ -109,6 +119,7 @@ export class GameScene {
   /** Calidad adaptativa: mide los FPS reales y va bajando escalones si el equipo no llega. */
   private perf = { warmup: 4, frames: 0, time: 0, step: 0, settled: false }
   private pixelRatio: number
+  private fpsCounter = { frames: 0, time: 0, value: 0 }
 
   constructor(canvas: HTMLCanvasElement, dinos: DinoData[], qualityLevel: QualityLevel, adaptiveQuality = true) {
     this.quality = getQualitySettings(qualityLevel)
@@ -318,6 +329,23 @@ export class GameScene {
     if (impact > 0) this.audio.impact(impact)
   }
 
+  /** Datos para el panel `?debug=1`: sirven para medir el rendimiento en móviles reales. */
+  getDebugInfo(): DebugInfo {
+    const gl = this.renderer.getContext()
+    const ext = gl.getExtension('WEBGL_debug_renderer_info')
+    const gpu = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'desconocida'
+    const info = this.renderer.info.render
+    return {
+      fps: this.fpsCounter.value,
+      quality: this.quality.level,
+      qualityStep: this.perf.step,
+      pixelRatio: this.pixelRatio,
+      drawCalls: info.calls,
+      triangles: info.triangles,
+      gpu,
+    }
+  }
+
   /** Escalón de calidad adaptativa aplicado (0 = ninguno). Expuesto para depuración. */
   getQualityStep(): number {
     return this.perf.step
@@ -386,6 +414,13 @@ export class GameScene {
     const rawDt = this.timer.getDelta()
     const dt = Math.min(rawDt, 0.1)
     this.adaptQuality(rawDt)
+    this.fpsCounter.frames++
+    this.fpsCounter.time += rawDt
+    if (this.fpsCounter.time >= 1) {
+      this.fpsCounter.value = this.fpsCounter.frames / this.fpsCounter.time
+      this.fpsCounter.frames = 0
+      this.fpsCounter.time = 0
+    }
     const elapsed = this.timer.getElapsed()
 
     this.vehicle.update(input, dt, this.vehicleWorld)
