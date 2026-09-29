@@ -60,6 +60,18 @@ estático.
 - **Panel del cielo** (arriba a la izquierda): hora, fase lunar, viajar en el
   tiempo y mostrar constelaciones.
 - `?calidad=baja` / `?calidad=alta` en la URL fuerza el nivel de calidad.
+- `?debug=1` muestra un panel con FPS (y el mínimo), calidad, escalón adaptativo,
+  llamadas de dibujo, triángulos y GPU: sirve para medir el rendimiento en móviles reales.
+
+## Privacidad y estadísticas
+
+- Sin cookies ni datos personales: la ubicación solo se usa en el navegador y las fuentes
+  van alojadas en el propio sitio. Detalle en `public/privacidad.html` (`/privacidad.html`).
+- Estadísticas con Vercel Web Analytics y Speed Insights (sin cookies). Hay que activarlas
+  una vez en el panel del proyecto en Vercel (pestañas *Analytics* y *Speed Insights*).
+- La imagen para compartir es `public/og-image.jpg`. Las URLs absolutas de las etiquetas
+  Open Graph salen del dominio de producción de Vercel; con dominio propio, define la
+  variable de entorno `SITE_URL` (p. ej. `https://midominio.es`) en Vercel.
 
 ## Arranque en local
 

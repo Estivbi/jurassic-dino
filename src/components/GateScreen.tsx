@@ -41,13 +41,14 @@ export function GateScreen({ onStart, onShowCredits }: Props) {
         Arrancar el jeep →
       </button>
 
-      <button
-        type="button"
-        onClick={onShowCredits}
-        className="mt-4 text-xs text-[var(--cream)]/60 underline decoration-[var(--cream)]/30 underline-offset-4"
-      >
-        Créditos y licencias
-      </button>
+      <div className="mt-4 flex gap-4 text-xs text-[var(--cream)]/60">
+        <button type="button" onClick={onShowCredits} className="underline decoration-[var(--cream)]/30 underline-offset-4">
+          Créditos y licencias
+        </button>
+        <a href="/privacidad.html" className="underline decoration-[var(--cream)]/30 underline-offset-4">
+          Privacidad
+        </a>
+      </div>
     </div>
   )
 }

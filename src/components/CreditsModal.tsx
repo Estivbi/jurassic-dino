@@ -59,6 +59,11 @@ export function CreditsModal({ onClose }: Props) {
           Helechos, helechos arborescentes, cícadas, terreno y cielo nocturno: diseño procedural propio. Las fichas se han
           redactado a partir de divulgación paleontológica contrastada; las masas y tamaños son estimaciones.
         </p>
+        <p className="mt-2 text-xs">
+          <a href="/privacidad.html" className="text-[var(--amber-300)] underline">
+            Privacidad: sin cookies ni datos personales
+          </a>
+        </p>
       </div>
     </motion.div>
   )
